@@ -137,7 +137,6 @@
         
         .panel { max-width: 415px; margin: 25px auto 0; padding: 20px; border-radius: 8px; box-shadow: 0 4px 12px var(--color-box-shadow); display: none; }
         .panel h3 { margin-top: 0; }
-        .panel h4 { margin-top: 20px; margin-bottom: 10px; border-bottom: 1px solid var(--color-grid-lines); padding-bottom: 5px; text-align: left;}
         .panel p { font-size: 0.9em; color: var(--color-text-secondary); margin-bottom: 15px; text-align: left; }
         
         #start-created-puzzle-btn, #create-book-btn { background-color: var(--color-success); }
@@ -145,7 +144,6 @@
 
         .create-options-grid { display: grid; grid-template-columns: auto 1fr; gap: 10px 15px; align-items: center; margin-bottom: 15px; }
         .create-options-grid label { text-align: right; }
-        .checkbox-group { text-align: left; display: flex; align-items: center; gap: 5px; grid-column: 2; }
         .create-options-grid input[type="number"] { width: 70px; }
 
         .book-options-grid { display: grid; grid-template-columns: auto 1fr; gap: 10px 15px; align-items: center; }
@@ -241,23 +239,15 @@
 
         <div id="create-puzzle-panel" class="panel">
             <h3>Create a Custom Puzzle</h3>
-            
-            <h4>Puzzle Settings</h4>
+            <p>Define a structure for your puzzle by choosing how many rows, columns, or 3x3 boxes should be complete. The generator will create a valid puzzle based on your choices.</p>
             <div class="create-options-grid">
-                <label for="total-clues-input">Total Clues (17-80):</label>
-                <input type="number" id="total-clues-input" value="30" min="17" max="80">
-                
-                <label for="guaranteed-clues-input">Guaranteed Clues:</label>
-                <input type="number" id="guaranteed-clues-input" value="0" min="0" max="30">
-                
-                <div></div>
-                 <div class="checkbox-group">
-                    <label for="symmetry-checkbox">Symmetrical Clues:</label>
-                    <input type="checkbox" id="symmetry-checkbox">
-                </div>
+                <label for="completed-rows-input">Completed Rows:</label>
+                <input type="number" id="completed-rows-input" value="0" min="0" max="9">
+                <label for="completed-cols-input">Completed Columns:</label>
+                <input type="number" id="completed-cols-input" value="0" min="0" max="9">
+                <label for="completed-boxes-input">Completed Boxes:</label>
+                <input type="number" id="completed-boxes-input" value="0" min="0" max="9">
             </div>
-            <p>Use "Guaranteed Clues" to control the structural core of the puzzle. These clues are placed first, symmetrically if checked.</p>
-
 
             <div class="controls-grid">
                 <button id="start-created-puzzle-btn">Create & Start</button>
@@ -297,7 +287,7 @@
         </div>
 
         <div id="status-container"><p id="source-status"></p></div>
-        <div id="version-info">v2.3</div>
+        <div id="version-info">v2.4</div>
     </div>
     
     <script>
@@ -323,9 +313,9 @@
             createPuzzleBtn: document.getElementById('create-puzzle-btn'),
             startCreatedPuzzleBtn: document.getElementById('start-created-puzzle-btn'),
             cancelCreatePuzzleBtn: document.getElementById('cancel-create-puzzle-btn'),
-            totalCluesInput: document.getElementById('total-clues-input'),
-            guaranteedCluesInput: document.getElementById('guaranteed-clues-input'),
-            symmetryCheckbox: document.getElementById('symmetry-checkbox'),
+            completedRowsInput: document.getElementById('completed-rows-input'),
+            completedColsInput: document.getElementById('completed-cols-input'),
+            completedBoxesInput: document.getElementById('completed-boxes-input'),
             generateBookPanel: document.getElementById('generate-book-panel'),
             createBookBtn: document.getElementById('create-book-btn'),
             cancelBookOptionsBtn: document.getElementById('cancel-book-options-btn')
@@ -406,60 +396,57 @@
             }
         }
 
-        function generateSudoku(options) {
+        function generateSudoku(options = {}) {
             const board = Array(9).fill(0).map(() => Array(9).fill(0));
             solve(board);
             const solution = JSON.parse(JSON.stringify(board));
             let puzzle = JSON.parse(JSON.stringify(solution));
 
-            let totalClues = options.totalClues || getCluesForDifficulty(options.difficulty);
-            let guaranteedCluesCount = options.guaranteedClues || 0;
-            
             const mandatoryClues = new Set();
-            
-            if (guaranteedCluesCount > 0) {
-                let coords = [];
-                if (options.symmetry) {
-                    for(let r=0; r<5; r++) for(let c=0; c<9; c++) {
-                        if (r === 4 && c > 4) continue;
-                        coords.push([r,c]);
-                    }
-                } else {
-                    for(let r=0; r<9; r++) for(let c=0; c<9; c++) coords.push([r,c]);
-                }
-                shuffle(coords);
+            if (options.completedRowCount > 0) {
+                const rows = shuffle([...Array(9).keys()]).slice(0, options.completedRowCount);
+                rows.forEach(r => { for(let c=0; c<9; c++) mandatoryClues.add(`${r},${c}`); });
+            }
+            if (options.completedColCount > 0) {
+                const cols = shuffle([...Array(9).keys()]).slice(0, options.completedColCount);
+                cols.forEach(c => { for(let r=0; r<9; r++) mandatoryClues.add(`${r},${c}`); });
+            }
+            if (options.completedBoxCount > 0) {
+                const boxes = shuffle([...Array(9).keys()]).slice(0, options.completedBoxCount);
+                boxes.forEach(b => {
+                    const startRow = Math.floor(b / 3) * 3, startCol = (b % 3) * 3;
+                    for(let r=0; r<3; r++) for(let c=0; c<3; c++) mandatoryClues.add(`${startRow+r},${startCol+c}`);
+                });
+            }
 
-                let placedGuaranteed = 0;
-                for(const [r,c] of coords) {
-                    if (placedGuaranteed >= guaranteedCluesCount) break;
-                    mandatoryClues.add(`${r},${c}`);
-                    placedGuaranteed++;
-                    if (options.symmetry) {
-                        mandatoryClues.add(`${8-r},${8-c}`);
-                        if (`${r},${c}` !== `${8-r},${8-c}`) placedGuaranteed++;
-                    }
+            let removalCandidates = [];
+            for (let r = 0; r < 9; r++) for (let c = 0; c < 9; c++) {
+                if (!mandatoryClues.has(`${r},${c}`)) {
+                    removalCandidates.push([r, c]);
                 }
             }
-            
-            let allCells = [];
-            for(let r=0; r<9; r++) for(let c=0; c<9; c++) allCells.push([r,c]);
-            shuffle(allCells);
+            shuffle(removalCandidates);
 
-            for (const [r,c] of allCells) {
-                 if (document.querySelectorAll('.grid-cell:not(.empty)').length <= totalClues) break;
-                 if (mandatoryClues.has(`${r},${c}`)) continue;
-
-                 const backup = puzzle[r][c];
-                 puzzle[r][c] = 0;
-
-                 const tempBoard = JSON.parse(JSON.stringify(puzzle));
-                 solutionCounter = 0;
-                 countSolutions(tempBoard);
-                 
-                 if (solutionCounter !== 1) {
-                     puzzle[r][c] = backup;
-                 }
+            // If no custom structure, use difficulty to remove cells
+            if (mandatoryClues.size === 0) {
+                const cluesToKeep = getCluesForDifficulty(options.difficulty);
+                const cellsToRemoveCount = 81 - cluesToKeep;
+                removalCandidates = removalCandidates.slice(0, cellsToRemoveCount);
             }
+
+            for (const [r, c] of removalCandidates) {
+                const backup = puzzle[r][c];
+                puzzle[r][c] = 0;
+                
+                const tempBoard = JSON.parse(JSON.stringify(puzzle));
+                solutionCounter = 0;
+                countSolutions(tempBoard);
+                
+                if (solutionCounter !== 1) {
+                    puzzle[r][c] = backup;
+                }
+            }
+
             return { puzzle, solution };
         }
 
@@ -568,7 +555,7 @@
                 startTime = Date.now();
                 const clueCount = puzzle.flat().filter(c => c !== 0).length;
                 puzzleConfigKey = `sudoku-custom-${puzzle.join('')}`;
-                ui.status.textContent = source ? `${source} (${clueCount} Clues)` : `(${clueCount} Clues)`;
+                ui.status.textContent = source ? `${source} (${clueCount} Clues)` : `Custom Puzzle (${clueCount} Clues)`;
 
             } catch(error) {
                 ui.status.textContent = `Error: ${error.message}`;
@@ -752,27 +739,17 @@
         
         ui.createPuzzleBtn.addEventListener('click', () => showPanel(ui.createPuzzlePanel));
         ui.cancelCreatePuzzleBtn.addEventListener('click', () => showPanel(null));
-        
-        ui.totalCluesInput.addEventListener('input', () => {
-            const total = parseInt(ui.totalCluesInput.value, 10);
-            ui.guaranteedCluesInput.max = total;
-            if (parseInt(ui.guaranteedCluesInput.value, 10) > total) {
-                ui.guaranteedCluesInput.value = total;
-            }
-        });
 
         ui.startCreatedPuzzleBtn.addEventListener('click', () => {
              startNewGame(new Promise((resolve, reject) => {
-                const totalClues = parseInt(ui.totalCluesInput.value, 10);
-                const guaranteedClues = parseInt(ui.guaranteedCluesInput.value, 10);
-                if (isNaN(totalClues) || totalClues < 17 || totalClues > 80) return reject(new Error("Total Clues must be between 17 and 80."));
-                if (isNaN(guaranteedClues) || guaranteedClues < 0 || guaranteedClues > totalClues) return reject(new Error("Guaranteed Clues must be between 0 and Total Clues."));
-                
                 const options = {
-                    totalClues: totalClues,
-                    guaranteedClues: guaranteedClues,
-                    symmetry: ui.symmetryCheckbox.checked,
+                    completedRowCount: parseInt(ui.completedRowsInput.value, 10) || 0,
+                    completedColCount: parseInt(ui.completedColsInput.value, 10) || 0,
+                    completedBoxCount: parseInt(ui.completedBoxesInput.value, 10) || 0,
                 };
+                if (options.completedRowCount > 9 || options.completedColCount > 9 || options.completedBoxCount > 9) {
+                    return reject(new Error("Completed zones cannot be greater than 9."));
+                }
                 
                 showPanel(null);
                 resolve({ ...generateSudoku(options), source: `Custom Puzzle` });
