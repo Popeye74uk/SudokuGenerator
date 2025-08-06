@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sudoku Generator v1.0</title>
+    <title>Sudoku Generator v1.1</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
         :root {
@@ -117,10 +117,9 @@
         .flash-conflict { animation: flash-red-bg 0.5s ease; }
         @keyframes flash-red-bg { 50% { background-color: var(--color-incorrect-bg); } }
 
-        .loader { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background-color: var(--color-container-bg); display: flex; justify-content: center; align-items: center; flex-direction: column; gap: 15px; z-index: 10; font-size: 1.1em; color: var(--color-text-secondary); border-radius: 4px; }
+        .loader { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(var(--color-container-bg), 0.8); display: flex; justify-content: center; align-items: center; flex-direction: column; gap: 15px; z-index: 10; font-size: 1.1em; color: var(--color-text-secondary); border-radius: 4px; }
         .loader.hidden { opacity: 0; pointer-events: none; }
         .spinner { border: 4px solid var(--color-spinner-track); border-top: 4px solid var(--color-primary); border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         
         .global-options-container { display: flex; justify-content: center; align-items: center; gap: 10px 25px; margin-top: 25px; font-size: 1em; color: var(--color-text-primary); }
         .controls-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; max-width: 415px; margin: 25px auto 0 auto; }
@@ -136,10 +135,18 @@
         #make-book-btn { background-color: var(--color-danger); }
         #hint-btn { background-color: var(--color-info); }
         
+        /* --- Custom Puzzle Panel --- */
+        #custom-puzzle-panel { max-width: 415px; margin: 25px auto 0; padding: 20px; border-radius: 8px; box-shadow: 0 4px 12px var(--color-box-shadow); display: none; }
+        #custom-puzzle-panel h3 { margin-top: 0; }
+        #custom-puzzle-panel p { font-size: 0.9em; color: var(--color-text-secondary); margin-bottom: 15px; }
+        #custom-puzzle-input { width: 100%; min-height: 100px; font-family: 'Courier New', Courier, monospace; margin-bottom: 15px; padding: 8px; box-sizing: border-box; }
+        #start-custom-btn { background-color: var(--color-success); }
+        #cancel-custom-btn { background-color: var(--color-text-secondary); }
+
         #status-container { text-align: center; margin-top: 15px; font-style: italic; min-height: 20px; color: var(--color-text-secondary); }
         #version-info { text-align: center; margin-top: 20px; font-size: 0.8em; color: var(--color-grid-lines); }
         
-        #completion-modal { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background-color: var(--color-modal-bg); display: flex; justify-content: center; align-items: center; z-index: 20; opacity: 0; pointer-events: none; transition: opacity 0.3s ease-in-out; }
+        #completion-modal { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background-color: var(--color-modal-bg); display: flex; justify-content: center; align-items: center; z-index: 20; opacity: 0; pointer-events: none; transition: opacity 0.3s ease-in-out; border-radius: 5px; }
         #completion-modal.visible { opacity: 1; pointer-events: auto; }
         .modal-content { background-color: var(--color-modal-content-bg); padding: 40px; border-radius: 10px; text-align: center; box-shadow: 0 5px 15px var(--color-box-shadow); transform: scale(0.9); transition: transform 0.3s ease-in-out; }
         #completion-modal.visible .modal-content { transform: scale(1); }
@@ -186,6 +193,18 @@
                     <div class="spinner"></div>
                     <span id="loader-text">Generating Puzzle...</span>
                 </div>
+                <!-- Fullscreen Modal Fix: Moved modal inside wrapper -->
+                <div id="completion-modal" onclick="this.classList.remove('visible')">
+                    <div class="modal-content">
+                        <h2>You Solved It!</h2>
+                        <div id="completion-details">
+                            <p id="your-time"></p>
+                            <p id="best-time"></p>
+                            <p id="new-best-time"></p>
+                        </div>
+                        <button>Play Again?</button>
+                    </div>
+                </div>
             </div>
         </div>
         
@@ -203,27 +222,25 @@
 
         <div class="controls-grid" id="main-controls">
             <button id="generate-btn">New Puzzle</button>
-            <button id="custom-puzzle-btn" disabled>Custom Puzzle</button>
+            <button id="custom-puzzle-btn">Custom Puzzle</button>
             <button id="hint-btn">Hint</button>
             <button id="reveal-btn">Reveal Solution</button>
             <button id="download-pdf-btn" disabled>Download as PDF</button>
             <button id="make-book-btn" disabled>Make Book</button>
         </div>
 
-        <div id="status-container"><p id="source-status"></p></div>
-        <div id="version-info">v1.0</div>
-    </div>
-
-    <div id="completion-modal" onclick="this.classList.remove('visible')">
-        <div class="modal-content">
-            <h2>You Solved It!</h2>
-            <div id="completion-details">
-                <p id="your-time"></p>
-                <p id="best-time"></p>
-                <p id="new-best-time"></p>
+        <div id="custom-puzzle-panel">
+            <h3>Solve Your Own Puzzle</h3>
+            <p>Enter an 81-character puzzle string. Use numbers 1-9 for clues and '0' or '.' for empty cells.</p>
+            <textarea id="custom-puzzle-input" placeholder="e.g., 003020600900305001001806400008102900700000008006708200002609500800203009005010300"></textarea>
+            <div class="controls-grid">
+                <button id="start-custom-btn">Start Puzzle</button>
+                <button id="cancel-custom-btn">Cancel</button>
             </div>
-            <button>Play Again?</button>
         </div>
+
+        <div id="status-container"><p id="source-status"></p></div>
+        <div id="version-info">v1.1</div>
     </div>
     
     <script>
@@ -242,6 +259,12 @@
             completionModal: document.getElementById('completion-modal'),
             fullscreenBtn: document.getElementById('fullscreen-btn'),
             themeToggleBtn: document.getElementById('theme-toggle-btn'),
+            mainControls: document.getElementById('main-controls'),
+            customPuzzlePanel: document.getElementById('custom-puzzle-panel'),
+            customPuzzleBtn: document.getElementById('custom-puzzle-btn'),
+            startCustomBtn: document.getElementById('start-custom-btn'),
+            cancelCustomBtn: document.getElementById('cancel-custom-btn'),
+            customPuzzleInput: document.getElementById('custom-puzzle-input')
         };
 
         let puzzleBoard = [], solutionBoard = [], userBoard = [];
@@ -403,8 +426,9 @@
             return true;
         }
 
-        function setUiLoading(isLoading) {
+        function setUiLoading(isLoading, message = 'Generating Puzzle...') {
             document.querySelectorAll('button, select').forEach(el => el.disabled = isLoading);
+            ui.loaderText.textContent = message;
             ui.loader.classList.toggle('hidden', !isLoading);
         }
 
@@ -460,33 +484,34 @@
             }
         }
 
-        async function generateNewPuzzle() {
+        async function startNewGame(puzzlePromise) {
             setUiLoading(true);
             ui.status.textContent = '';
             hintedCells.clear();
-            const difficulty = ui.difficultySelect.value;
-            ui.loaderText.textContent = `Generating ${difficulty} puzzle...`;
             
             await new Promise(resolve => setTimeout(resolve, 50));
 
             try {
-                puzzleBoard = generateSudoku(difficulty);
+                const { puzzle, solution } = await puzzlePromise;
+                puzzleBoard = puzzle;
+                solutionBoard = solution;
                 userBoard = Array(9).fill(0).map(() => Array(9).fill(0));
                 handleCellClick(-1, -1); 
                 
                 updateGridDisplay();
                 startTime = Date.now();
-                puzzleConfigKey = `sudoku-${difficulty}`;
-                ui.status.textContent = `Difficulty: ${difficulty.charAt(0).toUpperCase() + difficulty.slice(1)}`;
+                puzzleConfigKey = `sudoku-custom-${puzzle.join('')}`; // Unique key for custom puzzles
+                ui.status.textContent = puzzle.source;
 
             } catch(error) {
                 ui.status.textContent = `Error: ${error.message}`;
+                alert(`Error: ${error.message}`);
                 console.error(error);
             } finally {
                 setUiLoading(false);
             }
         }
-        
+
         function checkFinalSolution() {
             for (let r = 0; r < 9; r++) {
                 for (let c = 0; c < 9; c++) {
@@ -557,6 +582,16 @@
             updateGridDisplay();
         }
 
+        function showCustomPanel() {
+            ui.mainControls.style.display = 'none';
+            ui.customPuzzlePanel.style.display = 'block';
+        }
+
+        function hideCustomPanel() {
+            ui.mainControls.style.display = 'grid';
+            ui.customPuzzlePanel.style.display = 'none';
+        }
+
         // --- EVENT LISTENERS ---
 
         ui.grid.addEventListener('click', (e) => {
@@ -568,10 +603,10 @@
 
         document.addEventListener('keydown', (e) => {
             const key = e.key.toLowerCase();
-            if(ui.completionModal.classList.contains('visible')) return;
+            if(ui.completionModal.classList.contains('visible') || ui.customPuzzlePanel.style.display === 'block') return;
 
             if (key === 'f') { e.preventDefault(); toggleFullScreen(); return; }
-            if (key === 'n') { e.preventDefault(); generateNewPuzzle(); return; }
+            if (key === 'n') { e.preventDefault(); startNewGame(new Promise(res => { const diff = ui.difficultySelect.value; res({ puzzle: generateSudoku(diff), solution: solutionBoard, source: `Difficulty: ${diff.charAt(0).toUpperCase() + diff.slice(1)}` }) })); return; }
             if (key === 'h') { e.preventDefault(); giveHint(); return; }
 
             if(selectedCell.row === -1) return;
@@ -611,19 +646,45 @@
         setTheme(savedTheme || (prefersDark ? 'dark' : 'light'));
         
         // --- INITIALIZATION ---
-        ui.generateBtn.addEventListener('click', generateNewPuzzle);
+        ui.generateBtn.addEventListener('click', () => startNewGame(new Promise(res => { const diff = ui.difficultySelect.value; res({ puzzle: generateSudoku(diff), solution: solutionBoard, source: `Difficulty: ${diff.charAt(0).toUpperCase() + diff.slice(1)}` }) })));
         ui.revealBtn.addEventListener('click', revealSolution);
         ui.hintBtn.addEventListener('click', giveHint);
-        ui.difficultySelect.addEventListener('change', generateNewPuzzle);
+        ui.difficultySelect.addEventListener('change', () => startNewGame(new Promise(res => { const diff = ui.difficultySelect.value; res({ puzzle: generateSudoku(diff), solution: solutionBoard, source: `Difficulty: ${diff.charAt(0).toUpperCase() + diff.slice(1)}` }) })));
+        
+        ui.customPuzzleBtn.addEventListener('click', showCustomPanel);
+        ui.cancelCustomBtn.addEventListener('click', hideCustomPanel);
+        ui.startCustomBtn.addEventListener('click', () => {
+             startNewGame(new Promise((resolve, reject) => {
+                const input = ui.customPuzzleInput.value.replace(/\./g, '0').trim();
+                if (input.length !== 81 || !/^[0-9]{81}$/.test(input)) {
+                    return reject(new Error("Invalid puzzle string. Must be 81 characters, containing only numbers 0-9 or '.'"));
+                }
+                
+                const pBoard = [];
+                for(let i=0; i<9; i++) pBoard.push(input.substring(i*9, (i+1)*9).split('').map(Number));
+
+                const sBoard = JSON.parse(JSON.stringify(pBoard));
+                if(!solve(sBoard)) return reject(new Error("This puzzle is not solvable."));
+
+                const tempBoard = JSON.parse(JSON.stringify(pBoard));
+                solutionCounter = 0;
+                countSolutions(tempBoard);
+                if (solutionCounter > 1) return reject(new Error("This puzzle has multiple solutions and is not valid."));
+                
+                hideCustomPanel();
+                resolve({ puzzle: pBoard, solution: sBoard, source: 'Custom Puzzle' });
+            }));
+        });
+        
         ui.fullscreenBtn.addEventListener('click', toggleFullScreen);
         document.querySelector('#completion-modal button').addEventListener('click', () => {
              ui.completionModal.classList.remove('visible');
-             generateNewPuzzle();
+             startNewGame(new Promise(res => { const diff = ui.difficultySelect.value; res({ puzzle: generateSudoku(diff), solution: solutionBoard, source: `Difficulty: ${diff.charAt(0).toUpperCase() + diff.slice(1)}` }) }));
         });
         document.addEventListener('fullscreenchange', updateGridDisplay);
         window.addEventListener('resize', () => { if (!document.fullscreenElement) { updateGridDisplay(); } });
 
-        generateNewPuzzle();
+        startNewGame(new Promise(res => { const diff = ui.difficultySelect.value; res({ puzzle: generateSudoku(diff), solution: solutionBoard, source: `Difficulty: ${diff.charAt(0).toUpperCase() + diff.slice(1)}` }) }));
     </script>
 </body>
 </html>
