@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sudoku Generator v0.6</title>
+    <title>Sudoku Generator v0.7</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
         :root {
@@ -74,10 +74,13 @@
         
         /* --- Grid Border Rework --- */
         #grid {
-            border: 3px solid var(--color-grid-box-lines);
-            border-radius: 5px;
             display: grid;
             grid-template-columns: repeat(9, auto);
+            background-color: var(--color-grid-box-lines);
+            border-right: 3px solid var(--color-grid-box-lines);
+            border-bottom: 3px solid var(--color-grid-box-lines);
+            border-radius: 5px;
+            overflow: hidden; /* Ensures inner borders don't leak past radius */
         }
 
         .grid-cell {
@@ -90,23 +93,16 @@
             cursor: pointer;
             user-select: none;
             transition: background-color 0.2s;
-            font-size: 1.5em;
-            border-bottom: 1px solid var(--color-grid-lines);
-            border-right: 1px solid var(--color-grid-lines);
+            border-top: 1px solid var(--color-grid-lines);
+            border-left: 1px solid var(--color-grid-lines);
         }
 
-        /* Thick horizontal lines */
-        .grid-cell[data-row="2"], .grid-cell[data-row="5"] {
-            border-bottom: 3px solid var(--color-grid-box-lines);
+        .grid-cell[data-row="0"], .grid-cell[data-row="3"], .grid-cell[data-row="6"] {
+            border-top-width: 3px;
         }
-        /* Thick vertical lines */
-        .grid-cell[data-col="2"], .grid-cell[data-col="5"] {
-            border-right: 3px solid var(--color-grid-box-lines);
+        .grid-cell[data-col="0"], .grid-cell[data-col="3"], .grid-cell[data-col="6"] {
+            border-left-width: 3px;
         }
-
-        /* Clean up borders on the edges of the grid */
-        .grid-cell[data-col="8"] { border-right: none; }
-        .grid-cell[data-row="8"] { border-bottom: none; }
 
         .grid-cell.given-cell { color: var(--color-grid-given-text); font-weight: normal;}
         .grid-cell.selected { background-color: var(--color-grid-selected-bg); }
@@ -211,7 +207,7 @@
         </div>
 
         <div id="status-container"><p id="source-status"></p></div>
-        <div id="version-info">v0.6</div>
+        <div id="version-info">v0.7</div>
     </div>
 
     <div id="completion-modal" onclick="this.classList.remove('visible')">
@@ -368,7 +364,7 @@
             ui.grid.innerHTML = '';
             
             const containerSize = Math.min(ui.puzzleContainer.clientWidth, 600);
-            const cellSize = Math.floor((containerSize - 6) / 9); // -6 for 2x3px borders
+            const cellSize = Math.floor(containerSize / 9);
 
             ui.grid.style.gridTemplateColumns = `repeat(9, ${cellSize}px)`;
             
