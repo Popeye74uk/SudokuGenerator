@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sudoku Generator v0.1</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <style>
+        :root {
+            --color-background: #f8f9fa;
+            --color-container-bg: #f8f9fa;
+            --color-text-primary: #212529;
+            --color-text-secondary: #6c757d;
+            --color-heading: #343a40;
+            --color-grid-lines: #adb5bd;
+            --color-grid-box-lines: #343a40;
+            --color-grid-cell-bg: #fff;
+            --color-grid-given-text: #000;
+            --color-grid-user-text: #007bff;
+            --color-grid-selected-bg: #d0e8ff;
+            --color-button-disabled-bg: #6c757d;
+            --color-spinner-track: #f3f3f3;
+            --color-modal-bg: rgba(0, 0, 0, 0.6);
+            --color-modal-content-bg: white;
+            --color-box-shadow: rgba(0,0,0,0.1);
+            --color-box-shadow-hover: rgba(0,0,0,0.15);
+            --color-primary: #007bff;
+            --color-success: #28a745;
+            --color-danger: #dc3545;
+            --color-warning: #ffc107;
+            --color-info: #6f42c1;
+            --color-pink: #d63384;
+            --color-correct-bg: rgba(40, 167, 69, 0.3);
+            --color-incorrect-bg: rgba(220, 53, 69, 0.4);
+        }
+
+        body.dark-mode {
+            --color-background: #121212;
+            --color-container-bg: #1e1e1e;
+            --color-text-primary: #e0e0e0;
+            --color-text-secondary: #888;
+            --color-heading: #f1f1f1;
+            --color-grid-lines: #444;
+            --color-grid-box-lines: #c5c5c5;
+            --color-grid-cell-bg: #2a2a2a;
+            --color-grid-given-text: #fff;
+            --color-grid-user-text: #58a6ff;
+            --color-grid-selected-bg: #3a5a78;
+            --color-button-disabled-bg: #555;
+            --color-spinner-track: #444;
+            --color-modal-bg: rgba(0, 0, 0, 0.8);
+            --color-modal-content-bg: #2c2c2c;
+            --color-box-shadow: rgba(0,0,0,0.3);
+            --color-box-shadow-hover: rgba(0,0,0,0.4);
+            --color-correct-bg: rgba(40, 167, 69, 0.4);
+            --color-incorrect-bg: rgba(220, 53, 69, 0.5);
+        }
+
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; font-size: 16px; color: var(--color-text-primary); background-color: var(--color-background); padding: 20px; margin: 0; display: flex; justify-content: center; align-items: flex-start; min-height: 100vh; transition: background-color 0.3s, color 0.3s; }
+        .container { width: 100%; max-width: 900px; margin: 0 auto; text-align: center; }
+        .main-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; max-width: 500px; margin-left: auto; margin-right: auto; }
+        .main-header h1 { flex-grow: 1; margin: 0; padding: 0 10px; text-align: center; }
+        .header-buttons { display: flex; gap: 10px; }
+        .header-spacer { min-width: 100px; flex-shrink: 0; }
+        
+        #puzzle-container { display: flex; margin-top: 20px; justify-content: center; }
+        #grid-wrapper { position: relative; }
+        #grid-wrapper:fullscreen { background-color: var(--color-background); padding: 20px; display: flex; justify-content: center; align-items: center; }
+        
+        #grid { display: grid; grid-template-columns: repeat(9, auto); border: 3px solid var(--color-grid-box-lines); border-radius: 5px; background-color: var(--color-grid-box-lines); gap: 1px; }
+        .grid-cell { background-color: var(--color-grid-cell-bg); color: var(--color-grid-user-text); font-weight: bold; display: flex; justify-content: center; align-items: center; cursor: pointer; user-select: none; transition: background-color 0.2s; font-size: 1.5em; }
+        .grid-cell.given-cell { color: var(--color-grid-given-text); cursor: not-allowed; font-weight: normal;}
+        .grid-cell.selected { background-color: var(--color-grid-selected-bg); }
+        .grid-cell:nth-child(3n) { border-right: 2px solid var(--color-grid-box-lines); }
+        .grid-cell:nth-child(9n) { border-right: none; }
+        .grid-row:nth-child(3n) .grid-cell { border-bottom: 2px solid var(--color-grid-box-lines); }
+        .grid-row:nth-child(9) .grid-cell { border-bottom: none; }
+        .grid-cell.correct { background-color: var(--color-correct-bg); }
+        .grid-cell.incorrect { background-color: var(--color-incorrect-bg); }
+
+        .loader { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background-color: var(--color-container-bg); display: flex; justify-content: center; align-items: center; flex-direction: column; gap: 15px; z-index: 10; font-size: 1.1em; color: var(--color-text-secondary); border-radius: 4px; }
+        .loader.hidden { opacity: 0; pointer-events: none; }
+        .spinner { border: 4px solid var(--color-spinner-track); border-top: 4px solid var(--color-primary); border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        
+        .controls-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; max-width: 415px; margin: 25px auto 0 auto; }
+        .global-options-container { display: flex; justify-content: center; align-items: center; gap: 10px 25px; margin-top: 5px; margin-bottom: 5px; font-size: 1em; color: var(--color-text-primary); }
+        .option-group { display: flex; align-items: center; gap: 10px; }
+        button { padding: 12px 20px; font-size: 1em; font-weight: bold; cursor: pointer; color: white; border: none; border-radius: 5px; transition: all 0.2s; box-shadow: 0 2px 4px var(--color-box-shadow); width: 100%; box-sizing: border-box; }
+        button:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 4px 8px var(--color-box-shadow-hover); }
+        button:disabled { background-color: var(--color-button-disabled-bg); cursor: not-allowed; opacity: 0.7; }
+        #generate-btn { background-color: var(--color-primary); }
+        #reveal-btn { background-color: var(--color-success); }
+        #download-pdf-btn { background-color: var(--color-pink); }
+        #custom-puzzle-btn { background-color: var(--color-warning); }
+        #make-book-btn { background-color: var(--color-danger); }
+        #hint-btn { background-color: var(--color-info); }
+        #check-btn { background-color: var(--color-primary); grid-column: 1 / -1; }
+        
+        #status-container { text-align: center; margin-top: 15px; font-style: italic; min-height: 20px; color: var(--color-text-secondary); }
+        #version-info { text-align: center; margin-top: 20px; font-size: 0.8em; color: var(--color-grid-lines); }
+        
+        #completion-modal { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background-color: var(--color-modal-bg); display: flex; justify-content: center; align-items: center; z-index: 20; opacity: 0; pointer-events: none; transition: opacity 0.3s ease-in-out; }
+        #completion-modal.visible { opacity: 1; pointer-events: auto; }
+        .modal-content { background-color: var(--color-modal-content-bg); padding: 40px; border-radius: 10px; text-align: center; box-shadow: 0 5px 15px var(--color-box-shadow); transform: scale(0.9); transition: transform 0.3s ease-in-out; }
+        #completion-modal.visible .modal-content { transform: scale(1); }
+        .modal-content h2 { font-size: 2.5em; margin-top: 0; margin-bottom: 20px; color: var(--color-success); }
+        .modal-content button { min-width: 150px; background-color: var(--color-primary); }
+        #completion-details { margin-bottom: 25px; font-size: 1.1em; color: var(--color-text-primary); }
+        #completion-details p { margin: 5px 0; }
+        #new-best-time { color: var(--color-warning); font-weight: bold; }
+
+        #fullscreen-btn, #theme-toggle-btn { background: none; border: 2px solid var(--color-text-secondary); color: var(--color-text-secondary); width: 44px; height: 44px; padding: 0; border-radius: 50%; display: flex; justify-content: center; align-items: center; overflow: hidden; box-shadow: none; flex-shrink: 0; }
+        #fullscreen-btn:hover, #theme-toggle-btn:hover { border-color: var(--color-text-primary); color: var(--color-text-primary); transform: none; box-shadow: none; }
+        #fullscreen-btn svg, #theme-toggle-btn svg { width: 24px; height: 24px; fill: currentColor; }
+        .icon-sun, .icon-moon { display: none; }
+        body.dark-mode .icon-sun { display: block; }
+        body:not(.dark-mode) .icon-moon { display: block; }
+
+        @media (max-width: 480px) {
+            .main-header h1 { font-size: 1.8em; }
+            .controls-grid { grid-template-columns: 1fr; }
+            .grid-cell { font-size: 1.2em; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header class="main-header">
+            <div class="header-spacer"></div>
+            <h1>Sudoku Generator</h1>
+            <div class="header-buttons">
+                 <button id="fullscreen-btn" title="Toggle Fullscreen (F)">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>
+                </button>
+                <button id="theme-toggle-btn" title="Toggle Theme">
+                    <svg class="icon-sun" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zM2 13h2c.55 0 1-.45 1-1s-.45-1-1-1H2c-.55 0-1 .45-1 1s.45 1 1 1zm18 0h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1zM11 2v2c0 .55.45 1 1 1s1-.45 1-1V2c0-.55-.45-1-1-1s-1 .45-1 1zm0 18v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1s-1 .45-1 1zM5.64 5.64c.39.39 1.02.39 1.41 0 .39-.39.39-1.02 0-1.41-.39-.39-1.02-.39-1.41 0-.39.39-.39 1.02 0 1.41zm12.73 12.73c.39.39 1.02.39 1.41 0 .39-.39.39-1.02 0-1.41-.39-.39-1.02-.39-1.41 0-.39.39-.39 1.02 0 1.41zM5.64 18.36c-.39.39-.39 1.02 0 1.41.39.39 1.02.39 1.41 0 .39-.39.39-1.02 0-1.41-.39-.39-1.02-.39-1.41 0zM18.36 5.64c-.39.39-.39 1.02 0 1.41.39.39 1.02.39 1.41 0 .39-.39.39-1.02 0-1.41-.39-.38-1.03-.38-1.41 0z"/></svg>
+                    <svg class="icon-moon" xmlns="http://www.w3.org/2000/svg" enable-background="new 0 0 24 24" viewBox="0 0 24 24"><path d="M12,3c-4.97,0-9,4.03-9,9s4.03,9,9,9s9-4.03,9-9c0-0.46-0.04-0.92-0.11-1.36c-0.98,1.37-2.58,2.26-4.39,2.26 c-2.98,0-5.4-2.42-5.4-5.4c0-1.81,0.89-3.42,2.26-4.39C12.92,3.04,12.46,3,12,3z"/></svg>
+                </button>
+            </div>
+        </header>
+
+        <div id="puzzle-container">
+            <div id="grid-wrapper">
+                <div id="grid"></div>
+                <div id="loader" class="loader hidden">
+                    <div class="spinner"></div>
+                    <span id="loader-text">Generating Puzzle...</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="global-options-container">
+            <div class="option-group">
+                <label for="difficulty-select"><b>Difficulty:</b></label>
+                <select id="difficulty-select">
+                    <option value="easy">Easy</option>
+                    <option value="medium" selected>Medium</option>
+                    <option value="hard">Hard</option>
+                    <option value="expert">Expert</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="controls-grid" id="main-controls">
+            <button id="generate-btn">New Puzzle</button>
+            <button id="custom-puzzle-btn" disabled>Custom Puzzle</button>
+            <button id="hint-btn">Hint</button>
+            <button id="reveal-btn">Reveal Solution</button>
+            <button id="download-pdf-btn" disabled>Download as PDF</button>
+            <button id="make-book-btn" disabled>Make Book</button>
+            <button id="check-btn">Check Answer</button>
+        </div>
+
+        <div id="status-container"><p id="source-status"></p></div>
+        <div id="version-info">v0.1</div>
+    </div>
+
+    <div id="completion-modal" onclick="this.classList.remove('visible')">
+        <div class="modal-content">
+            <h2>You Solved It!</h2>
+            <div id="completion-details">
+                <p id="your-time"></p>
+                <p id="best-time"></p>
+                <p id="new-best-time"></p>
+            </div>
+            <button>Play Again?</button>
+        </div>
+    </div>
+    
+    <script>
+        // --- GLOBAL VARIABLES & CONSTANTS ---
+        const ui = {
+            grid: document.getElementById('grid'),
+            gridWrapper: document.getElementById('grid-wrapper'),
+            loader: document.getElementById('loader'),
+            loaderText: document.getElementById('loader-text'),
+            difficultySelect: document.getElementById('difficulty-select'),
+            status: document.getElementById('source-status'),
+            generateBtn: document.getElementById('generate-btn'),
+            checkBtn: document.getElementById('check-btn'),
+            revealBtn: document.getElementById('reveal-btn'),
+            hintBtn: document.getElementById('hint-btn'),
+            completionModal: document.getElementById('completion-modal'),
+            fullscreenBtn: document.getElementById('fullscreen-btn'),
+            themeToggleBtn: document.getElementById('theme-toggle-btn'),
+        };
+
+        let puzzleBoard = [], solutionBoard = [], userBoard = [];
+        let selectedCell = { row: -1, col: -1 };
+        let startTime, puzzleConfigKey;
+
+        // --- SUDOKU CORE LOGIC ---
+
+        function shuffle(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+
+        function findEmpty(board) {
+            for (let r = 0; r < 9; r++) {
+                for (let c = 0; c < 9; c++) {
+                    if (board[r][c] === 0) return [r, c];
+                }
+            }
+            return null;
+        }
+
+        function isValid(board, row, col, num) {
+            for (let i = 0; i < 9; i++) {
+                if (board[row][i] === num || board[i][col] === num) return false;
+            }
+            const boxRow = Math.floor(row / 3) * 3;
+            const boxCol = Math.floor(col / 3) * 3;
+            for (let r = 0; r < 3; r++) {
+                for (let c = 0; c < 3; c++) {
+                    if (board[boxRow + r][boxCol + c] === num) return false;
+                }
+            }
+            return true;
+        }
+
+        function solve(board) {
+            const emptyPos = findEmpty(board);
+            if (!emptyPos) return true;
+            const [r, c] = emptyPos;
+            const nums = shuffle([1, 2, 3, 4, 5, 6, 7, 8, 9]);
+
+            for (const num of nums) {
+                if (isValid(board, r, c, num)) {
+                    board[r][c] = num;
+                    if (solve(board)) return true;
+                    board[r][c] = 0;
+                }
+            }
+            return false;
+        }
+        
+        let solutionCounter;
+        function countSolutions(board) {
+            const emptyPos = findEmpty(board);
+            if (!emptyPos) {
+                solutionCounter++;
+                return;
+            }
+            const [r, c] = emptyPos;
+            for (let num = 1; num <= 9 && solutionCounter < 2; num++) {
+                if (isValid(board, r, c, num)) {
+                    board[r][c] = num;
+                    countSolutions(board);
+                    board[r][c] = 0; // backtrack
+                }
+            }
+        }
+
+        function generateSudoku(difficulty) {
+            const board = Array(9).fill(0).map(() => Array(9).fill(0));
+            solve(board);
+            solutionBoard = JSON.parse(JSON.stringify(board));
+            
+            let attempts;
+            switch(difficulty) {
+                case 'easy': attempts = 35; break;
+                case 'medium': attempts = 45; break; 
+                case 'hard': attempts = 50; break;
+                case 'expert': attempts = 54; break;
+                default: attempts = 45;
+            }
+            
+            const cells = [];
+            for (let r = 0; r < 9; r++) {
+                for (let c = 0; c < 9; c++) {
+                    cells.push([r, c]);
+                }
+            }
+            shuffle(cells);
+
+            let removedCount = 0;
+            for (const [r, c] of cells) {
+                if(removedCount >= attempts) break;
+                
+                const backup = board[r][c];
+                board[r][c] = 0;
+                
+                const tempBoard = JSON.parse(JSON.stringify(board));
+                solutionCounter = 0;
+                countSolutions(tempBoard);
+
+                if (solutionCounter !== 1) {
+                    board[r][c] = backup;
+                } else {
+                    removedCount++;
+                }
+            }
+            return board;
+        }
+
+        // --- UI & DISPLAY LOGIC ---
+
+        function setUiLoading(isLoading) {
+            document.querySelectorAll('button, select').forEach(el => el.disabled = isLoading);
+            ui.loader.classList.toggle('hidden', !isLoading);
+        }
+
+        function updateGridDisplay() {
+            ui.grid.innerHTML = '';
+            
+            const containerSize = Math.min(window.innerWidth * 0.9, window.innerHeight * 0.7, 500);
+            const cellSize = Math.floor(containerSize / 9);
+            ui.grid.style.width = `${cellSize * 9 + 8}px`; // +8 for gaps and borders
+            ui.grid.style.height = `${cellSize * 9 + 8}px`;
+
+            for (let r = 0; r < 9; r++) {
+                const rowDiv = document.createElement('div');
+                rowDiv.className = 'grid-row';
+                rowDiv.style.display = 'grid';
+                rowDiv.style.gridTemplateColumns = `repeat(9, ${cellSize}px)`;
+                rowDiv.style.gap = '1px';
+
+                for (let c = 0; c < 9; c++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'grid-cell';
+                    cell.dataset.row = r;
+                    cell.dataset.col = c;
+                    cell.style.width = `${cellSize}px`;
+                    cell.style.height = `${cellSize}px`;
+                    
+                    if (puzzleBoard[r][c] !== 0) {
+                        cell.textContent = puzzleBoard[r][c];
+                        cell.classList.add('given-cell');
+                    } else {
+                        cell.textContent = userBoard[r][c] === 0 ? '' : userBoard[r][c];
+                        cell.tabIndex = 0; // Make it focusable
+                    }
+
+                    if (r === selectedCell.row && c === selectedCell.col) {
+                        cell.classList.add('selected');
+                    }
+
+                    rowDiv.appendChild(cell);
+                }
+                ui.grid.appendChild(rowDiv);
+            }
+        }
+
+        async function generateNewPuzzle() {
+            setUiLoading(true);
+            ui.status.textContent = '';
+            const difficulty = ui.difficultySelect.value;
+            ui.loaderText.textContent = `Generating ${difficulty} puzzle...`;
+            
+            await new Promise(resolve => setTimeout(resolve, 50));
+
+            try {
+                puzzleBoard = generateSudoku(difficulty);
+                userBoard = Array(9).fill(0).map(() => Array(9).fill(0));
+                selectedCell = { row: -1, col: -1 };
+                
+                updateGridDisplay();
+                startTime = Date.now();
+                puzzleConfigKey = `sudoku-${difficulty}`;
+                ui.status.textContent = `Difficulty: ${difficulty.charAt(0).toUpperCase() + difficulty.slice(1)}`;
+
+            } catch(error) {
+                ui.status.textContent = `Error: ${error.message}`;
+                console.error(error);
+            } finally {
+                setUiLoading(false);
+            }
+        }
+        
+        function checkSolution() {
+            let isComplete = true;
+            let allCorrect = true;
+            let cellsToClear = [];
+
+            for (let r = 0; r < 9; r++) {
+                for (let c = 0; c < 9; c++) {
+                    const cell = ui.grid.querySelector(`[data-row='${r}'][data-col='${c}']`);
+                    if (cell.classList.contains('given-cell')) continue;
+
+                    if (userBoard[r][c] === 0) {
+                        isComplete = false;
+                        continue;
+                    }
+
+                    if (userBoard[r][c] === solutionBoard[r][c]) {
+                        cell.classList.add('correct');
+                    } else {
+                        cell.classList.add('incorrect');
+                        allCorrect = false;
+                    }
+                    cellsToClear.push(cell);
+                }
+            }
+
+            if(isComplete && allCorrect) {
+                handlePuzzleCompletion();
+            } else {
+                setTimeout(() => {
+                    cellsToClear.forEach(cell => cell.classList.remove('correct', 'incorrect'));
+                }, 1500);
+            }
+        }
+
+        function revealSolution() {
+            userBoard = JSON.parse(JSON.stringify(solutionBoard));
+            updateGridDisplay();
+            setUiLoading(true); // Disable buttons after reveal
+            ui.checkBtn.disabled = true;
+            ui.hintBtn.disabled = true;
+            ui.revealBtn.disabled = true;
+        }
+
+        function giveHint() {
+            const emptyCells = [];
+            for (let r = 0; r < 9; r++) {
+                for (let c = 0; c < 9; c++) {
+                    if (puzzleBoard[r][c] === 0 && userBoard[r][c] === 0) {
+                        emptyCells.push({ r, c });
+                    }
+                }
+            }
+            if (emptyCells.length > 0) {
+                const randomCell = emptyCells[Math.floor(Math.random() * emptyCells.length)];
+                const { r, c } = randomCell;
+                userBoard[r][c] = solutionBoard[r][c];
+                selectedCell = { row: r, col: c };
+                updateGridDisplay();
+            } else {
+                ui.status.textContent = "No empty cells to provide a hint for!";
+            }
+        }
+        
+        function handlePuzzleCompletion() {
+            const elapsedTime = Date.now() - startTime;
+            const bestTime = localStorage.getItem(puzzleConfigKey);
+            let isNewBest = false;
+            
+            if (!bestTime || elapsedTime < parseInt(bestTime, 10)) {
+                localStorage.setItem(puzzleConfigKey, elapsedTime);
+                isNewBest = true;
+            }
+
+            const formatTime = (ms) => {
+                const s = Math.floor(ms / 1000);
+                return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+            };
+            
+            document.getElementById('your-time').textContent = `Your time: ${formatTime(elapsedTime)}`;
+            document.getElementById('best-time').textContent = `Best time: ${formatTime(localStorage.getItem(puzzleConfigKey))}`;
+            document.getElementById('new-best-time').textContent = isNewBest ? 'New Best Time!' : '';
+            ui.completionModal.classList.add('visible');
+        }
+
+        // --- EVENT LISTENERS ---
+
+        ui.grid.addEventListener('click', (e) => {
+            const cell = e.target.closest('.grid-cell');
+            if (cell && !cell.classList.contains('given-cell')) {
+                selectedCell.row = parseInt(cell.dataset.row);
+                selectedCell.col = parseInt(cell.dataset.col);
+                updateGridDisplay();
+                cell.focus();
+            }
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if (selectedCell.row !== -1) {
+                const { row, col } = selectedCell;
+                if (e.key >= '1' && e.key <= '9') {
+                    userBoard[row][col] = parseInt(e.key);
+                    updateGridDisplay();
+                } else if (e.key === 'Backspace' || e.key === 'Delete') {
+                    userBoard[row][col] = 0;
+                    updateGridDisplay();
+                }
+            }
+            if (e.key.toLowerCase() === 'f') {
+                 e.preventDefault();
+                 toggleFullScreen();
+            }
+        });
+        
+        function toggleFullScreen() {
+            if (!document.fullscreenElement) {
+                ui.gridWrapper.requestFullscreen().catch(err => {
+                    alert(`Error attempting to enable full-screen mode: ${err.message} (${err.name})`);
+                });
+            } else {
+                document.exitFullscreen();
+            }
+        }
+        
+        // --- THEME ---
+        const themeToggleBtn = document.getElementById('theme-toggle-btn');
+        function setTheme(theme) { document.body.classList.toggle('dark-mode', theme === 'dark'); localStorage.setItem('theme', theme); }
+        themeToggleBtn.addEventListener('click', () => setTheme(document.body.classList.contains('dark-mode') ? 'light' : 'dark'));
+        const savedTheme = localStorage.getItem('theme'), prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        setTheme(savedTheme || (prefersDark ? 'dark' : 'light'));
+        
+        // --- INITIALIZATION ---
+        ui.generateBtn.addEventListener('click', generateNewPuzzle);
+        ui.checkBtn.addEventListener('click', checkSolution);
+        ui.revealBtn.addEventListener('click', revealSolution);
+        ui.hintBtn.addEventListener('click', giveHint);
+        ui.difficultySelect.addEventListener('change', generateNewPuzzle);
+        ui.fullscreenBtn.addEventListener('click', toggleFullScreen);
+        document.querySelector('#completion-modal button').addEventListener('click', () => {
+             ui.completionModal.classList.remove('visible');
+             generateNewPuzzle();
+        });
+        document.addEventListener('fullscreenchange', updateGridDisplay);
+        window.addEventListener('resize', () => { if (!document.fullscreenElement) { updateGridDisplay(); } });
+
+        generateNewPuzzle();
+    </script>
+</body>
+</html>
