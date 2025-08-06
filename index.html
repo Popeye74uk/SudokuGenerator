@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sudoku Generator v2.17</title>
+    <title>Sudoku Generator v2.18</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
         :root {
@@ -20,7 +20,7 @@
             --color-grid-selected-bg: #d0e8ff;
             --color-grid-related-bg: #e9ecef;
             --color-grid-highlighted-bg: #cce5ff;
-            --color-grid-diagonal-bg: #f0f0f0;
+            --color-grid-diagonal-bg: #e9ecef; /* Darkened for better contrast */
             --color-button-disabled-bg: #6c757d;
             --color-spinner-track: #f3f3f3;
             --color-modal-bg: rgba(0, 0, 0, 0.6);
@@ -326,7 +326,7 @@
         </div>
 
         <div id="status-container"><p id="source-status"></p></div>
-        <div id="version-info">v2.17</div>
+        <div id="version-info">v2.18</div>
     </div>
 
     <div id="book-loader" class="book-loader hidden">
