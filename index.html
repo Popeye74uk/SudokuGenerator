@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sudoku Generator v3.1</title>
+    <title>Sudoku Generator v3.2</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
         :root {
@@ -337,7 +337,7 @@
         </div>
 
         <div id="status-container"><p id="source-status"></p></div>
-        <div id="version-info">v3.1</div>
+        <div id="version-info">v3.2</div>
     </div>
 
     <div id="book-loader" class="book-loader hidden">
@@ -560,7 +560,6 @@
 
         function updateGridDisplay() {
             const newConflictCoords = updateConflicts();
-            ui.grid.innerHTML = '';
             
             const isFullscreen = !!document.fullscreenElement;
             const screenHeight = isFullscreen ? window.innerHeight : window.innerHeight - 250;
@@ -575,20 +574,20 @@
 
             for (let r = 0; r < 9; r++) {
                 for (let c = 0; c < 9; c++) {
-                    const cell = document.createElement('div');
+                    const cell = ui.grid.querySelector(`[data-row='${r}'][data-col='${c}']`);
+                    
+                    // Clear previous classes and content
                     cell.className = 'grid-cell';
-                    cell.dataset.row = r;
-                    cell.dataset.col = c;
-                    cell.style.fontSize = `${cellSize * 0.5}px`;
+                    cell.innerHTML = '';
 
                     if (isSudokuXMode && (r === c || r + c === 8)) {
                         cell.classList.add('diagonal-cell');
                     }
                     
                     const coordKey = `${r},${c}`;
-                    const isGiven = puzzleBoard.length > 0 && puzzleBoard[r][c] !== 0;
+                    const isGiven = puzzleBoard[r][c] !== 0;
                     const isHinted = hintedCells.has(coordKey);
-                    const userValue = userBoard.length > 0 ? userBoard[r][c] : 0;
+                    const userValue = userBoard[r][c];
                     const currentValue = isGiven ? puzzleBoard[r][c] : userValue;
                     
                     if (isGiven) cell.classList.add('given-cell');
@@ -596,7 +595,7 @@
 
                     if (currentValue !== 0) {
                         cell.textContent = currentValue;
-                    } else if (notesBoard.length > 0 && notesBoard[r][c].size > 0) {
+                    } else if (notesBoard[r][c].size > 0) {
                         const notesGrid = document.createElement('div');
                         notesGrid.className = 'notes-grid';
                         notesGrid.style.fontSize = `${cellSize * 0.25}px`;
@@ -610,10 +609,6 @@
                     }
                     
                     if (conflictCells.has(coordKey)) cell.classList.add('conflict-cell');
-                    if (newConflictCoords.has(coordKey)) {
-                        cell.classList.add('flash-conflict');
-                        cell.addEventListener('animationend', () => cell.classList.remove('flash-conflict'), { once: true });
-                    }
                     
                     if (selectedCell.row !== -1) {
                          if (r === selectedCell.row && c === selectedCell.col) cell.classList.add('selected');
@@ -622,7 +617,6 @@
                         }
                         if (selectedValue !== 0 && currentValue === selectedValue) cell.classList.add('highlighted');
                     }
-                    ui.grid.appendChild(cell);
                 }
             }
 
@@ -651,6 +645,19 @@
                 solutionBoard = solution;
                 userBoard = Array(9).fill(0).map(() => Array(9).fill(0));
                 notesBoard = Array(9).fill(0).map(() => Array(9).fill(0).map(() => new Set()));
+                
+                // Pre-populate grid cells once
+                ui.grid.innerHTML = '';
+                 for (let r = 0; r < 9; r++) {
+                    for (let c = 0; c < 9; c++) {
+                        const cell = document.createElement('div');
+                        cell.className = 'grid-cell';
+                        cell.dataset.row = r;
+                        cell.dataset.col = c;
+                        ui.grid.appendChild(cell);
+                    }
+                }
+                
                 handleCellClick(-1, -1); 
                 
                 startTime = Date.now();
