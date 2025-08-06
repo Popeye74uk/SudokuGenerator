@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sudoku Generator v2.14</title>
+    <title>Sudoku Generator v2.15</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
         :root {
@@ -167,6 +167,7 @@
         #number-panel { display: flex; justify-content: space-between; gap: 5px; margin: 15px auto 0; transition: width 0.3s ease; }
         .number-cell { display: flex; justify-content: center; align-items: center; font-weight: bold; border: 2px solid var(--color-grid-box-lines); border-radius: 4px; cursor: pointer; transition: all 0.2s; background-color: var(--color-grid-cell-bg); }
         .number-cell:hover { background-color: var(--color-grid-related-bg); }
+        .number-cell svg { width: 60%; height: 60%; fill: var(--color-text-primary); }
         .number-cell.used-up {
             background-color: var(--color-grid-cell-bg);
             color: var(--color-text-secondary);
@@ -196,8 +197,10 @@
         body:not(.dark-mode) .icon-moon { display: block; }
 
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-
+        
         @media (max-width: 480px) {
+            .header-spacer { flex-basis: 44px; /* Match button width */ }
+            .header-buttons { margin-right: -10px; /* Shift button left */ }
             .main-header h1 { font-size: 1.8em; }
             .controls-grid { grid-template-columns: 1fr; }
             .book-options-grid, .create-options-grid { grid-template-columns: 1fr; }
@@ -291,7 +294,7 @@
                 <input type="text" id="book-subtitle-input" placeholder="e.g., By Alex Doe">
 
                 <label for="puzzle-count-input">Puzzles:</label>
-                <input type="number" id="puzzle-count-input" value="20" min="1" max="100">
+                <input type="number" id="puzzle-count-input" value="20" min="1" max="400">
                 
                 <label for="puzzles-per-page-select">Puzzles/Page:</label>
                 <select id="puzzles-per-page-select">
@@ -313,7 +316,7 @@
         </div>
 
         <div id="status-container"><p id="source-status"></p></div>
-        <div id="version-info">v2.14</div>
+        <div id="version-info">v2.15</div>
     </div>
 
     <div id="book-loader" class="book-loader hidden">
@@ -591,7 +594,7 @@
 
             ui.numberPanel.style.width = `${gridTotalSize}px`;
             const numberCells = ui.numberPanel.querySelectorAll('.number-cell');
-            const numCellSize = (gridTotalSize - (8 * 5)) / 9;
+            const numCellSize = (gridTotalSize - (9 * 5)) / 10; // 9 gaps for 10 buttons
             numberCells.forEach(cell => {
                 cell.style.width = `${numCellSize}px`;
                 cell.style.height = `${numCellSize}px`;
@@ -788,7 +791,7 @@
                 includePageNumbers: document.getElementById('page-numbers-checkbox').checked
             };
 
-            if (isNaN(bookOptions.puzzleCount) || bookOptions.puzzleCount < 1 || bookOptions.puzzleCount > 100) { alert("Please enter a number between 1 and 100."); return; }
+            if (isNaN(bookOptions.puzzleCount) || bookOptions.puzzleCount < 1 || bookOptions.puzzleCount > 400) { alert("Please enter a number between 1 and 400."); return; }
             
             isGeneratingBook = true;
             ui.container.style.display = 'none';
@@ -835,7 +838,7 @@
                 isGeneratingBook = false;
                 ui.container.style.display = '';
                 ui.bookLoader.classList.add('hidden');
-                setUiLoading(false); 
+                setUiLoading(false);
                 hidePanel();
             }
         }
@@ -920,24 +923,43 @@
              defaultGame();
         });
         
-        for (let i = 1; i <= 9; i++) {
-            const cell = document.createElement('div');
-            cell.className = 'number-cell';
-            cell.textContent = i;
-            cell.dataset.number = i;
-            cell.addEventListener('click', () => {
-                if (selectedCell.row !== -1 && puzzleBoard[selectedCell.row][selectedCell.col] === 0 && !hintedCells.has(`${selectedCell.row},${selectedCell.col}`)) {
-                    userBoard[selectedCell.row][selectedCell.col] = i;
+        function setupNumberPanel() {
+            for (let i = 1; i <= 9; i++) {
+                const cell = document.createElement('div');
+                cell.className = 'number-cell';
+                cell.textContent = i;
+                cell.dataset.number = i;
+                cell.addEventListener('click', () => {
+                    if (selectedCell.row !== -1 && puzzleBoard[selectedCell.row][selectedCell.col] === 0 && !hintedCells.has(`${selectedCell.row},${selectedCell.col}`)) {
+                        userBoard[selectedCell.row][selectedCell.col] = i;
+                        updateGridDisplay();
+                        if(isBoardFull() && checkFinalSolution()) handlePuzzleCompletion();
+                    }
+                });
+                ui.numberPanel.appendChild(cell);
+            }
+            const deleteCell = document.createElement('div');
+            deleteCell.className = 'number-cell';
+            deleteCell.dataset.action = 'delete';
+            deleteCell.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M22 3H7c-.69 0-1.23.35-1.59.88L0 12l5.41 8.12c.36.53.9.88 1.59.88h15c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-3.7 13.3a.996.996 0 01-1.41 0L14 13.41l-2.89 2.89a.996.996 0 11-1.41-1.41L12.59 12 9.7 9.11a.996.996 0 111.41-1.41L14 10.59l2.89-2.89a.996.996 0 111.41 1.41L15.41 12l2.89 2.89c.38.38.38 1.02 0 1.41z"/></svg>`;
+            deleteCell.addEventListener('click', () => {
+                 if (selectedCell.row !== -1 && puzzleBoard[selectedCell.row][selectedCell.col] === 0 && !hintedCells.has(`${selectedCell.row},${selectedCell.col}`)) {
+                    userBoard[selectedCell.row][selectedCell.col] = 0;
                     updateGridDisplay();
-                    if(isBoardFull() && checkFinalSolution()) handlePuzzleCompletion();
                 }
             });
-            ui.numberPanel.appendChild(cell);
+            ui.numberPanel.appendChild(deleteCell);
         }
         
+        const isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+        if (isTouchDevice) {
+            ui.fullscreenBtn.style.display = 'none';
+        }
+
         document.addEventListener('fullscreenchange', updateGridDisplay);
         window.addEventListener('resize', updateGridDisplay);
 
+        setupNumberPanel();
         defaultGame();
     </script>
 </body>
