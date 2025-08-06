@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sudoku Generator v1.8</title>
+    <title>Sudoku Generator v1.9</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
         :root {
@@ -530,7 +530,21 @@
             }
         }
         
-        async function startNewGame(puzzlePromise) {
+        function generateAndStartNewGame(difficulty) {
+            const { puzzle, solution } = generateSudoku(difficulty);
+            const source = `Difficulty: ${difficulty.charAt(0).toUpperCase() + difficulty.slice(1)}`;
+            puzzleBoard = puzzle;
+            solutionBoard = solution;
+            userBoard = Array(9).fill(0).map(() => Array(9).fill(0));
+            hintedCells.clear();
+            handleCellClick(-1, -1);
+            updateGridDisplay();
+            startTime = Date.now();
+            puzzleConfigKey = `sudoku-${difficulty}-${puzzle.join('')}`;
+            ui.status.textContent = source;
+        }
+
+        async function startCustomGame(puzzlePromise) {
             setUiLoading(true);
             ui.status.textContent = '';
             hintedCells.clear();
@@ -556,19 +570,6 @@
             } finally {
                 setUiLoading(false);
             }
-        }
-        
-        function generateAndStartNewGame(difficulty) {
-            const { puzzle, solution } = generateSudoku(difficulty);
-            const source = `Difficulty: ${difficulty.charAt(0).toUpperCase() + difficulty.slice(1)}`;
-            puzzleBoard = puzzle;
-            solutionBoard = solution;
-            userBoard = Array(9).fill(0).map(() => Array(9).fill(0));
-            handleCellClick(-1, -1);
-            updateGridDisplay();
-            startTime = Date.now();
-            puzzleConfigKey = `sudoku-${difficulty}-${puzzle.join('')}`;
-            ui.status.textContent = source;
         }
 
         function checkFinalSolution() {
@@ -651,7 +652,7 @@
         // --- PDF Generation ---
         function drawSingleSudokuGrid(doc, { puzzle, solution }, startX, startY, gridTotalSize, showSolution = false) {
             const cellSize = gridTotalSize / 9;
-            const fontSize = (cellSize * 0.5) / 0.352778; // PDF font size scaling
+            const fontSize = (cellSize * 0.5) / 0.352778; // PDF font size scaling fix
             doc.setFont('helvetica', 'normal').setFontSize(fontSize).setTextColor(0);
 
             for (let r = 0; r < 9; r++) {
@@ -720,7 +721,6 @@
                 doc.setFont('helvetica', 'normal').setFontSize(8).text(String(pageNum), pageW / 2, pageH - 10, { align: 'center' });
             }
         }
-
 
         function drawAnswerKey(doc, allPuzzles) {
             doc.addPage();
@@ -835,6 +835,7 @@
             }
         }
 
+
         // --- EVENT LISTENERS ---
 
         ui.grid.addEventListener('click', (e) => {
@@ -918,7 +919,7 @@
                 showPanel(null);
                 resolve({ puzzle: pBoard, solution: sBoard, source: 'Custom Puzzle' });
             });
-            startNewGame(puzzlePromise);
+            startCustomGame(puzzlePromise);
         });
         
         ui.makeBookBtn.addEventListener('click', () => showPanel(ui.generateBookPanel));
