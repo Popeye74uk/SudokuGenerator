@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sudoku Generator v0.3</title>
+    <title>Sudoku Generator v0.4</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
         :root {
@@ -75,15 +75,14 @@
         .grid-row { display: grid; gap: 1px; }
 
         .grid-cell { background-color: var(--color-grid-cell-bg); color: var(--color-grid-user-text); font-weight: bold; display: flex; justify-content: center; align-items: center; cursor: pointer; user-select: none; transition: background-color 0.2s; font-size: 1.5em; }
-        .grid-cell.given-cell { color: var(--color-grid-given-text); cursor: not-allowed; font-weight: normal;}
+        .grid-cell.given-cell { color: var(--color-grid-given-text); font-weight: normal;}
         .grid-cell.selected { background-color: var(--color-grid-selected-bg); }
         .grid-cell.related-cell { background-color: var(--color-grid-related-bg); }
         .grid-cell.highlighted { background-color: var(--color-grid-highlighted-bg); }
 
-        .grid-cell:nth-child(3n) { border-right: 2px solid var(--color-grid-box-lines); }
-        .grid-cell:nth-child(9n) { border-right: none; }
-        .grid-row:nth-child(3n) { border-bottom: 2px solid var(--color-grid-box-lines); }
-        /* --- Border Fix: Removed rule that hid the bottom border of the last row --- */
+        /* --- Border Enhancement --- */
+        .grid-cell:nth-child(3n):not(:nth-child(9n)) { border-right: 3px solid var(--color-grid-box-lines); }
+        .grid-row:nth-child(3n):not(:nth-child(9)) { border-bottom: 3px solid var(--color-grid-box-lines); }
 
         .grid-cell.correct { background-color: var(--color-correct-bg); }
         .grid-cell.incorrect { background-color: var(--color-incorrect-bg); }
@@ -183,7 +182,7 @@
         </div>
 
         <div id="status-container"><p id="source-status"></p></div>
-        <div id="version-info">v0.3</div>
+        <div id="version-info">v0.4</div>
     </div>
 
     <div id="completion-modal" onclick="this.classList.remove('visible')">
@@ -366,8 +365,7 @@
                     
                     cell.textContent = currentValue === 0 ? '' : currentValue;
                     if (isGiven) cell.classList.add('given-cell');
-                    else cell.tabIndex = 0;
-
+                    
                     // Highlighting Logic
                     if (selectedCell.row !== -1) {
                          if (r === selectedCell.row && c === selectedCell.col) {
@@ -420,14 +418,14 @@
 
             for (let r = 0; r < 9; r++) {
                 for (let c = 0; c < 9; c++) {
-                    const cell = ui.grid.querySelector(`[data-row='${r}'][data-col='${c}']`);
-                    if (cell.classList.contains('given-cell')) continue;
+                    if (puzzleBoard[r][c] !== 0) continue;
 
                     if (userBoard[r][c] === 0) {
                         isComplete = false;
                         continue;
                     }
 
+                    const cell = ui.grid.querySelector(`[data-row='${r}'][data-col='${c}']`);
                     if (userBoard[r][c] === solutionBoard[r][c]) {
                         cell.classList.add('correct');
                     } else {
@@ -507,25 +505,29 @@
 
         ui.grid.addEventListener('click', (e) => {
             const cell = e.target.closest('.grid-cell');
-            if (cell && !cell.classList.contains('given-cell')) {
+            if (cell) {
+                // Allow clicking any cell to select it
                 handleCellClick(parseInt(cell.dataset.row), parseInt(cell.dataset.col));
             }
         });
 
         document.addEventListener('keydown', (e) => {
-            if(ui.completionModal.classList.contains('visible')) return;
+            if(ui.completionModal.classList.contains('visible') || selectedCell.row === -1) return;
             
-            if (selectedCell.row !== -1) {
-                const { row, col } = selectedCell;
-                if (e.key >= '1' && e.key <= '9') {
-                    userBoard[row][col] = parseInt(e.key);
-                    updateGridDisplay();
-                } else if (e.key === 'Backspace' || e.key === 'Delete' || e.key === '0') {
-                    e.preventDefault();
-                    userBoard[row][col] = 0;
-                    updateGridDisplay();
-                }
+            const { row, col } = selectedCell;
+
+            // Prevent editing "given" numbers
+            if (puzzleBoard[row][col] !== 0) return;
+
+            if (e.key >= '1' && e.key <= '9') {
+                userBoard[row][col] = parseInt(e.key);
+                updateGridDisplay();
+            } else if (e.key === 'Backspace' || e.key === 'Delete' || e.key === '0') {
+                e.preventDefault();
+                userBoard[row][col] = 0;
+                updateGridDisplay();
             }
+
             if (e.key.toLowerCase() === 'f') {
                  e.preventDefault();
                  toggleFullScreen();
