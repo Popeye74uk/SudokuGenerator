@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sudoku Generator v2.18</title>
+    <title>Sudoku Generator v3.0</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
         :root {
@@ -17,11 +17,13 @@
             --color-grid-cell-bg: #fff;
             --color-grid-given-text: #000;
             --color-grid-user-text: #007bff;
+            --color-grid-notes-text: #6c757d;
             --color-grid-selected-bg: #d0e8ff;
             --color-grid-related-bg: #e9ecef;
             --color-grid-highlighted-bg: #cce5ff;
-            --color-grid-diagonal-bg: #e9ecef; /* Darkened for better contrast */
+            --color-grid-diagonal-bg: #e9ecef; 
             --color-button-disabled-bg: #6c757d;
+            --color-button-active-bg: #0056b3;
             --color-spinner-track: #f3f3f3;
             --color-modal-bg: rgba(0, 0, 0, 0.6);
             --color-modal-content-bg: white;
@@ -49,11 +51,13 @@
             --color-grid-cell-bg: #2a2a2a;
             --color-grid-given-text: #fff;
             --color-grid-user-text: #58a6ff;
+            --color-grid-notes-text: #aaa;
             --color-grid-selected-bg: #3a5a78;
             --color-grid-related-bg: #222;
             --color-grid-highlighted-bg: #004a9e;
             --color-grid-diagonal-bg: #1a1a1a;
             --color-button-disabled-bg: #555;
+            --color-button-active-bg: #3685e0;
             --color-spinner-track: #444;
             --color-modal-bg: rgba(0, 0, 0, 0.8);
             --color-modal-content-bg: #2c2c2c;
@@ -110,6 +114,7 @@
             border-top: 1px solid var(--color-grid-lines);
             border-left: 1px solid var(--color-grid-lines);
             box-sizing: border-box; 
+            position: relative;
         }
 
         .grid-cell[data-row="0"], .grid-cell[data-row="3"], .grid-cell[data-row="6"] {
@@ -134,6 +139,9 @@
         .flash-conflict { animation: flash-red-bg 0.5s ease; }
         @keyframes flash-red-bg { 50% { background-color: var(--color-incorrect-bg); } }
 
+        .notes-grid { display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr); width: 100%; height: 100%; align-items: center; justify-items: center; }
+        .note-digit { color: var(--color-grid-notes-text); }
+
         .grid-loader { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center; flex-direction: column; gap: 15px; z-index: 10; font-size: 1.1em; color: white; border-radius: 4px; }
         .book-loader { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: var(--color-background); display: flex; justify-content: center; align-items: center; flex-direction: column; gap: 20px; z-index: 100; color: var(--color-text-primary); }
         .book-loader button { background-color: var(--color-text-secondary); width: auto; min-width: 120px; }
@@ -154,6 +162,10 @@
         #create-puzzle-btn { background-color: var(--color-warning); }
         #make-book-btn { background-color: var(--color-danger); }
         #hint-btn { background-color: var(--color-info); }
+
+        #notes-btn { background-color: var(--color-text-secondary); display: flex; justify-content: center; align-items: center; gap: 8px; }
+        #notes-btn.active { background-color: var(--color-button-active-bg); }
+        #notes-btn svg { width: 20px; height: 20px; fill: white; }
         
         .panel { max-width: 415px; margin: 25px auto 0; padding: 20px; border-radius: 8px; box-shadow: 0 4px 12px var(--color-box-shadow); display: none; }
         .panel h3 { margin-top: 0; }
@@ -249,6 +261,10 @@
                         <button>Play Again?</button>
                     </div>
                 </div>
+                <button id="notes-btn" title="Toggle Notes Mode (T)">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34a.9959.9959 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+                    <span>Notes</span>
+                </button>
                 <div id="number-panel"></div>
             </div>
         </div>
@@ -326,7 +342,7 @@
         </div>
 
         <div id="status-container"><p id="source-status"></p></div>
-        <div id="version-info">v2.18</div>
+        <div id="version-info">v3.0</div>
     </div>
 
     <div id="book-loader" class="book-loader hidden">
@@ -356,6 +372,7 @@
             hintBtn: document.getElementById('hint-btn'),
             downloadPdfBtn: document.getElementById('download-pdf-btn'),
             makeBookBtn: document.getElementById('make-book-btn'),
+            notesBtn: document.getElementById('notes-btn'),
             completionModal: document.getElementById('completion-modal'),
             fullscreenBtn: document.getElementById('fullscreen-btn'),
             themeToggleBtn: document.getElementById('theme-toggle-btn'),
@@ -372,7 +389,7 @@
             cancelBookOptionsBtn: document.getElementById('cancel-book-options-btn')
         };
 
-        let puzzleBoard = [], solutionBoard = [], userBoard = [];
+        let puzzleBoard = [], solutionBoard = [], userBoard = [], notesBoard = [];
         let selectedCell = { row: -1, col: -1 };
         let startTime, puzzleConfigKey;
         
@@ -380,6 +397,7 @@
         let conflictCells = new Set();
         let isGeneratingBook = false;
         let isSudokuXMode = false;
+        let isNotesMode = false;
 
         // --- SUDOKU CORE LOGIC ---
 
@@ -576,11 +594,27 @@
                     const coordKey = `${r},${c}`;
                     const isGiven = puzzleBoard.length > 0 && puzzleBoard[r][c] !== 0;
                     const isHinted = hintedCells.has(coordKey);
-                    const currentValue = isGiven ? puzzleBoard[r][c] : (userBoard.length > 0 ? userBoard[r][c] : 0);
+                    const userValue = userBoard.length > 0 ? userBoard[r][c] : 0;
+                    const currentValue = isGiven ? puzzleBoard[r][c] : userValue;
                     
-                    cell.textContent = currentValue === 0 ? '' : currentValue;
                     if (isGiven) cell.classList.add('given-cell');
                     if (isHinted) cell.classList.add('hint-cell');
+
+                    if (currentValue !== 0) {
+                        cell.textContent = currentValue;
+                    } else if (notesBoard.length > 0 && notesBoard[r][c].size > 0) {
+                        const notesGrid = document.createElement('div');
+                        notesGrid.className = 'notes-grid';
+                        notesGrid.style.fontSize = `${cellSize * 0.25}px`;
+                        for(let i=1; i<=9; i++) {
+                            const noteDigit = document.createElement('div');
+                            noteDigit.className = 'note-digit';
+                            noteDigit.textContent = notesBoard[r][c].has(i) ? i : '';
+                            notesGrid.appendChild(noteDigit);
+                        }
+                        cell.appendChild(notesGrid);
+                    }
+                    
                     if (conflictCells.has(coordKey)) cell.classList.add('conflict-cell');
                     if (newConflictCoords.has(coordKey)) {
                         cell.classList.add('flash-conflict');
@@ -622,6 +656,7 @@
                 puzzleBoard = puzzle;
                 solutionBoard = solution;
                 userBoard = Array(9).fill(0).map(() => Array(9).fill(0));
+                notesBoard = Array(9).fill(0).map(() => Array(9).fill(0).map(() => new Set()));
                 handleCellClick(-1, -1); 
                 
                 startTime = Date.now();
@@ -648,6 +683,7 @@
 
         function revealSolution() {
             userBoard = JSON.parse(JSON.stringify(solutionBoard));
+            notesBoard = Array(9).fill(0).map(() => Array(9).fill(0).map(() => new Set()));
             handleCellClick(-1,-1);
             ui.hintBtn.disabled = true;
             ui.revealBtn.disabled = true;
@@ -662,6 +698,7 @@
                 const randomCell = emptyCells[Math.floor(Math.random() * emptyCells.length)];
                 const { r, c } = randomCell;
                 userBoard[r][c] = solutionBoard[r][c];
+                notesBoard[r][c].clear();
                 hintedCells.add(`${r},${c}`);
                 handleCellClick(r,c);
                 if (isBoardFull() && checkFinalSolution()) handlePuzzleCompletion();
@@ -902,9 +939,28 @@
                 hidePanel();
             }
         }
+        
+        function handleInput(num) {
+            if(selectedCell.row === -1) return;
+            const { row, col } = selectedCell;
+            if (puzzleBoard[row][col] !== 0 || hintedCells.has(`${row},${col}`)) return;
+
+            if (isNotesMode) {
+                userBoard[row][col] = 0; // Clear answer if entering notes
+                if (notesBoard[row][col].has(num)) {
+                    notesBoard[row][col].delete(num);
+                } else {
+                    notesBoard[row][col].add(num);
+                }
+            } else {
+                notesBoard[row][col].clear();
+                userBoard[row][col] = userBoard[row][col] === num ? 0 : num;
+                if (isBoardFull() && checkFinalSolution()) handlePuzzleCompletion();
+            }
+            updateGridDisplay();
+        }
 
         // --- EVENT LISTENERS ---
-
         ui.grid.addEventListener('click', (e) => {
             const cell = e.target.closest('.grid-cell');
             if (cell) handleCellClick(parseInt(cell.dataset.row), parseInt(cell.dataset.col));
@@ -917,19 +973,22 @@
             if (key === 'f') { e.preventDefault(); toggleFullScreen(); return; }
             if (key === 'n') { e.preventDefault(); defaultGame(); return; }
             if (key === 'h') { e.preventDefault(); giveHint(); return; }
+            if (key === 't') { e.preventDefault(); ui.notesBtn.click(); return; }
 
-            if(selectedCell.row === -1) return;
-            const { row, col } = selectedCell;
-            if (puzzleBoard[row][col] !== 0 || hintedCells.has(`${row},${col}`)) return;
 
             if (e.key >= '1' && e.key <= '9') {
-                userBoard[row][col] = parseInt(e.key);
-                if (isBoardFull() && checkFinalSolution()) handlePuzzleCompletion();
+                handleInput(parseInt(e.key));
             } else if (['backspace', 'delete', '0'].includes(key)) {
                 e.preventDefault();
-                userBoard[row][col] = 0;
+                if(selectedCell.row !== -1) {
+                    const {row, col} = selectedCell;
+                    if (puzzleBoard[row][col] === 0 && !hintedCells.has(`${row},${col}`)) {
+                        userBoard[row][col] = 0;
+                        notesBoard[row][col].clear();
+                        updateGridDisplay();
+                    }
+                }
             }
-            updateGridDisplay();
         });
         
         function toggleFullScreen() {
@@ -961,6 +1020,10 @@
         ui.downloadPdfBtn.addEventListener('click', downloadPdf);
         ui.difficultySelect.addEventListener('change', defaultGame);
         ui.sudokuXCheckbox.addEventListener('change', defaultGame);
+        ui.notesBtn.addEventListener('click', () => {
+            isNotesMode = !isNotesMode;
+            ui.notesBtn.classList.toggle('active', isNotesMode);
+        });
         
         ui.createPuzzleBtn.addEventListener('click', () => showPanel(ui.createPuzzlePanel));
         ui.cancelCreatePuzzleBtn.addEventListener('click', hidePanel);
@@ -989,13 +1052,7 @@
                 cell.className = 'number-cell';
                 cell.textContent = i;
                 cell.dataset.number = i;
-                cell.addEventListener('click', () => {
-                    if (selectedCell.row !== -1 && puzzleBoard[selectedCell.row][selectedCell.col] === 0 && !hintedCells.has(`${selectedCell.row},${selectedCell.col}`)) {
-                        userBoard[selectedCell.row][selectedCell.col] = i;
-                        updateGridDisplay();
-                        if(isBoardFull() && checkFinalSolution()) handlePuzzleCompletion();
-                    }
-                });
+                cell.addEventListener('click', () => handleInput(i));
                 ui.numberPanel.appendChild(cell);
             }
             const deleteCell = document.createElement('div');
@@ -1003,9 +1060,13 @@
             deleteCell.dataset.action = 'delete';
             deleteCell.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M22 3H7c-.69 0-1.23.35-1.59.88L0 12l5.41 8.12c.36.53.9.88 1.59.88h15c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-3.7 13.3a.996.996 0 01-1.41 0L14 13.41l-2.89 2.89a.996.996 0 11-1.41-1.41L12.59 12 9.7 9.11a.996.996 0 111.41-1.41L14 10.59l2.89-2.89a.996.996 0 111.41 1.41L15.41 12l2.89 2.89c.38.38.38 1.02 0 1.41z"/></svg>`;
             deleteCell.addEventListener('click', () => {
-                 if (selectedCell.row !== -1 && puzzleBoard[selectedCell.row][selectedCell.col] === 0 && !hintedCells.has(`${selectedCell.row},${selectedCell.col}`)) {
-                    userBoard[selectedCell.row][selectedCell.col] = 0;
-                    updateGridDisplay();
+                 if (selectedCell.row !== -1) {
+                    const {row, col} = selectedCell;
+                     if (puzzleBoard[row][col] === 0 && !hintedCells.has(`${row},${col}`)) {
+                        userBoard[row][col] = 0;
+                        notesBoard[row][col].clear();
+                        updateGridDisplay();
+                    }
                 }
             });
             ui.numberPanel.appendChild(deleteCell);
