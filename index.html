@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sudoku Generator v1.9</title>
+    <title>Sudoku Generator v2.0</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
         :root {
@@ -132,16 +132,18 @@
         #generate-btn { background-color: var(--color-primary); }
         #reveal-btn { background-color: var(--color-success); }
         #download-pdf-btn { background-color: var(--color-pink); }
-        #custom-puzzle-btn { background-color: var(--color-warning); }
+        #create-puzzle-btn { background-color: var(--color-warning); }
         #make-book-btn { background-color: var(--color-danger); }
         #hint-btn { background-color: var(--color-info); }
         
         .panel { max-width: 415px; margin: 25px auto 0; padding: 20px; border-radius: 8px; box-shadow: 0 4px 12px var(--color-box-shadow); display: none; }
         .panel h3 { margin-top: 0; }
         .panel p { font-size: 0.9em; color: var(--color-text-secondary); margin-bottom: 15px; }
-        #custom-puzzle-input { width: 100%; min-height: 100px; font-family: 'Courier New', Courier, monospace; margin-bottom: 15px; padding: 8px; box-sizing: border-box; }
-        #start-custom-btn, #create-book-btn { background-color: var(--color-success); }
-        #cancel-custom-btn, #cancel-book-options-btn { background-color: var(--color-text-secondary); }
+        #start-created-puzzle-btn { background-color: var(--color-success); }
+        #cancel-create-puzzle-btn { background-color: var(--color-text-secondary); }
+
+        .create-options-grid { display: grid; grid-template-columns: auto 1fr; gap: 10px 15px; align-items: center; }
+        .create-options-grid label { text-align: right; }
 
         .book-options-grid { display: grid; grid-template-columns: auto 1fr; gap: 10px 15px; align-items: center; }
         .book-options-grid label { text-align: right; }
@@ -171,8 +173,8 @@
             .main-header h1 { font-size: 1.8em; }
             .controls-grid { grid-template-columns: 1fr; }
             .grid-cell { font-size: 1.2em; }
-            .book-options-grid { grid-template-columns: 1fr; }
-            .book-options-grid label { text-align: left; }
+            .book-options-grid, .create-options-grid { grid-template-columns: 1fr; }
+            .book-options-grid label, .create-options-grid label { text-align: left; }
         }
     </style>
 </head>
@@ -228,20 +230,23 @@
 
         <div class="controls-grid" id="main-controls">
             <button id="generate-btn">New Puzzle</button>
-            <button id="custom-puzzle-btn">Custom Puzzle</button>
+            <button id="create-puzzle-btn">Create Puzzle</button>
             <button id="hint-btn">Hint</button>
             <button id="reveal-btn">Reveal Solution</button>
             <button id="download-pdf-btn">Download as PDF</button>
             <button id="make-book-btn">Make Book</button>
         </div>
 
-        <div id="custom-puzzle-panel" class="panel">
-            <h3>Solve Your Own Puzzle</h3>
-            <p>Enter an 81-character puzzle string. Use numbers 1-9 for clues and '0' or '.' for empty cells.</p>
-            <textarea id="custom-puzzle-input" placeholder="e.g., 003020600900305001001806400008102900700000008006708200002609500800203009005010300"></textarea>
+        <div id="create-puzzle-panel" class="panel">
+            <h3>Create a Custom Puzzle</h3>
+            <div class="create-options-grid">
+                <label for="clue-count-input">Starting Clues (17-80):</label>
+                <input type="number" id="clue-count-input" value="30" min="17" max="80" style="width: 70px;">
+            </div>
+             <p>Set the number of pre-filled cells for your puzzle. A valid Sudoku requires at least 17 clues.</p>
             <div class="controls-grid">
-                <button id="start-custom-btn">Start Puzzle</button>
-                <button id="cancel-custom-btn">Cancel</button>
+                <button id="start-created-puzzle-btn">Create & Start</button>
+                <button id="cancel-create-puzzle-btn">Cancel</button>
             </div>
         </div>
 
@@ -277,7 +282,7 @@
         </div>
 
         <div id="status-container"><p id="source-status"></p></div>
-        <div id="version-info">v1.9</div>
+        <div id="version-info">v2.0</div>
     </div>
     
     <script>
@@ -299,11 +304,11 @@
             fullscreenBtn: document.getElementById('fullscreen-btn'),
             themeToggleBtn: document.getElementById('theme-toggle-btn'),
             mainControls: document.getElementById('main-controls'),
-            customPuzzlePanel: document.getElementById('custom-puzzle-panel'),
-            customPuzzleBtn: document.getElementById('custom-puzzle-btn'),
-            startCustomBtn: document.getElementById('start-custom-btn'),
-            cancelCustomBtn: document.getElementById('cancel-custom-btn'),
-            customPuzzleInput: document.getElementById('custom-puzzle-input'),
+            createPuzzlePanel: document.getElementById('create-puzzle-panel'),
+            createPuzzleBtn: document.getElementById('create-puzzle-btn'),
+            startCreatedPuzzleBtn: document.getElementById('start-created-puzzle-btn'),
+            cancelCreatePuzzleBtn: document.getElementById('cancel-create-puzzle-btn'),
+            clueCountInput: document.getElementById('clue-count-input'),
             generateBookPanel: document.getElementById('generate-book-panel'),
             createBookBtn: document.getElementById('create-book-btn'),
             cancelBookBtn: document.getElementById('cancel-book-btn'),
@@ -383,32 +388,38 @@
                 }
             }
         }
-
-        function generateSudoku(difficulty) {
-            const board = Array(9).fill(0).map(() => Array(9).fill(0));
-            solve(board);
-            const currentSolution = JSON.parse(JSON.stringify(board));
-            
-            let attempts;
-            switch(difficulty) {
-                case 'easy': attempts = 35; break;
-                case 'medium': attempts = 45; break; 
-                case 'hard': attempts = 50; break;
-                case 'expert': attempts = 54; break;
-                default: attempts = 45;
+        
+        function getCluesForDifficulty(difficulty) {
+             switch(difficulty) {
+                case 'easy': return 35;
+                case 'medium': return 30;
+                case 'hard': return 25;
+                case 'expert': return 22;
+                default: return 30;
             }
+        }
+
+        function generateSudoku(options) {
+            const board = Array(9).fill(0).map(() => Array(9).fill(0));
+            solve(board); // This creates a full, valid solution
+            const currentSolution = JSON.parse(JSON.stringify(board));
+
+            let clueCount;
+            if (options.clueCount) {
+                clueCount = options.clueCount;
+            } else {
+                clueCount = getCluesForDifficulty(options.difficulty);
+            }
+
+            const cellsToRemove = 81 - clueCount;
             
             const cells = [];
-            for (let r = 0; r < 9; r++) {
-                for (let c = 0; c < 9; c++) {
-                    cells.push([r, c]);
-                }
-            }
+            for (let r = 0; r < 9; r++) for (let c = 0; c < 9; c++) cells.push([r, c]);
             shuffle(cells);
 
             let removedCount = 0;
             for (const [r, c] of cells) {
-                if(removedCount >= attempts) break;
+                if (removedCount >= cellsToRemove) break;
                 
                 const backup = board[r][c];
                 board[r][c] = 0;
@@ -418,13 +429,14 @@
                 countSolutions(tempBoard);
 
                 if (solutionCounter !== 1) {
-                    board[r][c] = backup;
+                    board[r][c] = backup; // Put it back if removing it makes the puzzle invalid
                 } else {
                     removedCount++;
                 }
             }
             return { puzzle: board, solution: currentSolution };
         }
+
 
         // --- UI & DISPLAY LOGIC ---
 
@@ -644,7 +656,7 @@
 
         function showPanel(panel) {
             ui.mainControls.style.display = 'grid';
-            ui.customPuzzlePanel.style.display = 'none';
+            ui.createPuzzlePanel.style.display = 'none';
             ui.generateBookPanel.style.display = 'none';
             if (panel) {
                 ui.mainControls.style.display = 'none';
@@ -809,7 +821,7 @@
                     setUiLoading(true, `Generating Puzzle ${i} of ${bookOptions.puzzleCount}...`);
                     await new Promise(r => setTimeout(r, 10)); // Allow UI to update
                     const diff = ui.difficultySelect.value;
-                    const { puzzle, solution } = generateSudoku(diff);
+                    const { puzzle, solution } = generateSudoku({difficulty: diff});
                     allPuzzlesData.push({
                         puzzle,
                         solution,
@@ -871,14 +883,14 @@
 
         document.addEventListener('keydown', (e) => {
             const key = e.key.toLowerCase();
-            if(ui.completionModal.classList.contains('visible') || ui.customPuzzlePanel.style.display === 'block' || ui.generateBookPanel.style.display === 'block') return;
+            if(ui.completionModal.classList.contains('visible') || ui.createPuzzlePanel.style.display === 'block' || ui.generateBookPanel.style.display === 'block') return;
 
             if (key === 'f') { e.preventDefault(); toggleFullScreen(); return; }
             if (key === 'n') {
                 e.preventDefault();
                 startNewGame(new Promise(res => {
                     const diff = ui.difficultySelect.value;
-                    const data = generateSudoku(diff);
+                    const data = generateSudoku({difficulty: diff});
                     res({ ...data, source: `Difficulty: ${diff.charAt(0).toUpperCase() + diff.slice(1)}` });
                 }));
                 return;
@@ -922,34 +934,23 @@
         setTheme(savedTheme || (prefersDark ? 'dark' : 'light'));
         
         // --- INITIALIZATION ---
-        ui.generateBtn.addEventListener('click', () => startNewGame(new Promise(res => { const diff = ui.difficultySelect.value; const data = generateSudoku(diff); res({ ...data, source: `Difficulty: ${diff.charAt(0).toUpperCase() + diff.slice(1)}` }) })));
+        ui.generateBtn.addEventListener('click', () => startNewGame(new Promise(res => { const diff = ui.difficultySelect.value; const data = generateSudoku({difficulty: diff}); res({ ...data, source: `Difficulty: ${diff.charAt(0).toUpperCase() + diff.slice(1)}` }) })));
         ui.revealBtn.addEventListener('click', revealSolution);
         ui.hintBtn.addEventListener('click', giveHint);
         ui.downloadPdfBtn.addEventListener('click', downloadPdf);
-        ui.difficultySelect.addEventListener('change', () => startNewGame(new Promise(res => { const diff = ui.difficultySelect.value; const data = generateSudoku(diff); res({ ...data, source: `Difficulty: ${diff.charAt(0).toUpperCase() + diff.slice(1)}` }) })));
+        ui.difficultySelect.addEventListener('change', () => startNewGame(new Promise(res => { const diff = ui.difficultySelect.value; const data = generateSudoku({difficulty: diff}); res({ ...data, source: `Difficulty: ${diff.charAt(0).toUpperCase() + diff.slice(1)}` }) })));
         
-        ui.customPuzzleBtn.addEventListener('click', () => showPanel(ui.customPuzzlePanel));
-        ui.cancelCustomBtn.addEventListener('click', () => showPanel(null));
-        ui.startCustomBtn.addEventListener('click', () => {
+        ui.createPuzzleBtn.addEventListener('click', () => showPanel(ui.createPuzzlePanel));
+        ui.cancelCreatePuzzleBtn.addEventListener('click', () => showPanel(null));
+        ui.startCreatedPuzzleBtn.addEventListener('click', () => {
              startNewGame(new Promise((resolve, reject) => {
-                const input = ui.customPuzzleInput.value.replace(/\./g, '0').trim();
-                if (input.length !== 81 || !/^[0-9]{81}$/.test(input)) {
-                    return reject(new Error("Invalid puzzle string. Must be 81 characters, containing only numbers 0-9 or '.'"));
+                const clueCount = parseInt(ui.clueCountInput.value, 10);
+                if (isNaN(clueCount) || clueCount < 17 || clueCount > 80) {
+                    return reject(new Error("Invalid number of clues. Please enter a number between 17 and 80."));
                 }
-                
-                const pBoard = [];
-                for(let i=0; i<9; i++) pBoard.push(input.substring(i*9, (i+1)*9).split('').map(Number));
-
-                const sBoard = JSON.parse(JSON.stringify(pBoard));
-                if(!solve(sBoard)) return reject(new Error("This puzzle is not solvable."));
-
-                const tempBoard = JSON.parse(JSON.stringify(pBoard));
-                solutionCounter = 0;
-                countSolutions(tempBoard);
-                if (solutionCounter > 1) return reject(new Error("This puzzle has multiple solutions and is not valid."));
-                
+                const data = generateSudoku({clueCount: clueCount});
                 showPanel(null);
-                resolve({ puzzle: pBoard, solution: sBoard, source: 'Custom Puzzle' });
+                resolve({ ...data, source: `Custom Puzzle with ${clueCount} clues` });
             }));
         });
         
@@ -961,12 +962,12 @@
         ui.fullscreenBtn.addEventListener('click', toggleFullScreen);
         document.querySelector('#completion-modal button').addEventListener('click', () => {
              ui.completionModal.classList.remove('visible');
-             startNewGame(new Promise(res => { const diff = ui.difficultySelect.value; const data = generateSudoku(diff); res({ ...data, source: `Difficulty: ${diff.charAt(0).toUpperCase() + diff.slice(1)}` }) }));
+             startNewGame(new Promise(res => { const diff = ui.difficultySelect.value; const data = generateSudoku({difficulty: diff}); res({ ...data, source: `Difficulty: ${diff.charAt(0).toUpperCase() + diff.slice(1)}` }) }));
         });
         document.addEventListener('fullscreenchange', updateGridDisplay);
         window.addEventListener('resize', () => { if (!document.fullscreenElement) { updateGridDisplay(); } });
 
-        startNewGame(new Promise(res => { const diff = ui.difficultySelect.value; const data = generateSudoku(diff); res({ ...data, source: `Difficulty: ${diff.charAt(0).toUpperCase() + diff.slice(1)}` }) }));
+        startNewGame(new Promise(res => { const diff = ui.difficultySelect.value; const data = generateSudoku({difficulty: diff}); res({ ...data, source: `Difficulty: ${diff.charAt(0).toUpperCase() + diff.slice(1)}` }) }));
     </script>
 </body>
 </html>
