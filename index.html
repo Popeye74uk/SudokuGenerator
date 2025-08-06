@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sudoku Generator v1.8</title>
+    <title>Sudoku Generator v1.9</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
         :root {
@@ -277,7 +277,7 @@
         </div>
 
         <div id="status-container"><p id="source-status"></p></div>
-        <div id="version-info">v1.8</div>
+        <div id="version-info">v1.9</div>
     </div>
     
     <script>
@@ -874,7 +874,15 @@
             if(ui.completionModal.classList.contains('visible') || ui.customPuzzlePanel.style.display === 'block' || ui.generateBookPanel.style.display === 'block') return;
 
             if (key === 'f') { e.preventDefault(); toggleFullScreen(); return; }
-            if (key === 'n') { e.preventDefault(); startNewGame(new Promise(res => { const diff = ui.difficultySelect.value; res({ puzzle: generateSudoku(diff).puzzle, solution: solutionBoard, source: `Difficulty: ${diff.charAt(0).toUpperCase() + diff.slice(1)}` }) })); return; }
+            if (key === 'n') {
+                e.preventDefault();
+                startNewGame(new Promise(res => {
+                    const diff = ui.difficultySelect.value;
+                    const data = generateSudoku(diff);
+                    res({ ...data, source: `Difficulty: ${diff.charAt(0).toUpperCase() + diff.slice(1)}` });
+                }));
+                return;
+            }
             if (key === 'h') { e.preventDefault(); giveHint(); return; }
 
             if(selectedCell.row === -1) return;
