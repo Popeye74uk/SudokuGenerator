@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sudoku Generator v1.4</title>
+    <title>Sudoku Generator v1.5</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
         :root {
@@ -119,6 +119,7 @@
 
         .loader { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(var(--color-container-bg), 0.8); display: flex; justify-content: center; align-items: center; flex-direction: column; gap: 15px; z-index: 10; font-size: 1.1em; color: var(--color-text-secondary); border-radius: 4px; }
         .loader.hidden { opacity: 0; pointer-events: none; }
+        #cancel-book-btn { display: none; margin-top: 10px; }
         .spinner { border: 4px solid var(--color-spinner-track); border-top: 4px solid var(--color-primary); border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
         
         .global-options-container { display: flex; justify-content: center; align-items: center; gap: 10px 25px; margin-top: 25px; font-size: 1em; color: var(--color-text-primary); }
@@ -135,12 +136,16 @@
         #make-book-btn { background-color: var(--color-danger); }
         #hint-btn { background-color: var(--color-info); }
         
-        #custom-puzzle-panel { max-width: 415px; margin: 25px auto 0; padding: 20px; border-radius: 8px; box-shadow: 0 4px 12px var(--color-box-shadow); display: none; }
-        #custom-puzzle-panel h3 { margin-top: 0; }
-        #custom-puzzle-panel p { font-size: 0.9em; color: var(--color-text-secondary); margin-bottom: 15px; }
+        .panel { max-width: 415px; margin: 25px auto 0; padding: 20px; border-radius: 8px; box-shadow: 0 4px 12px var(--color-box-shadow); display: none; }
+        .panel h3 { margin-top: 0; }
+        .panel p { font-size: 0.9em; color: var(--color-text-secondary); margin-bottom: 15px; }
         #custom-puzzle-input { width: 100%; min-height: 100px; font-family: 'Courier New', Courier, monospace; margin-bottom: 15px; padding: 8px; box-sizing: border-box; }
-        #start-custom-btn { background-color: var(--color-success); }
-        #cancel-custom-btn { background-color: var(--color-text-secondary); }
+        #start-custom-btn, #create-book-btn { background-color: var(--color-success); }
+        #cancel-custom-btn, #cancel-book-options-btn { background-color: var(--color-text-secondary); }
+
+        .book-options-grid { display: grid; grid-template-columns: auto 1fr; gap: 10px 15px; align-items: center; }
+        .book-options-grid label { text-align: right; }
+        #book-checkbox-options { display: flex; gap: 20px; align-items: center; justify-content: flex-start; }
 
         #status-container { text-align: center; margin-top: 15px; font-style: italic; min-height: 20px; color: var(--color-text-secondary); }
         #version-info { text-align: center; margin-top: 20px; font-size: 0.8em; color: var(--color-grid-lines); }
@@ -166,6 +171,8 @@
             .main-header h1 { font-size: 1.8em; }
             .controls-grid { grid-template-columns: 1fr; }
             .grid-cell { font-size: 1.2em; }
+            .book-options-grid { grid-template-columns: 1fr; }
+            .book-options-grid label { text-align: left; }
         }
     </style>
 </head>
@@ -191,6 +198,7 @@
                 <div id="loader" class="loader hidden">
                     <div class="spinner"></div>
                     <span id="loader-text">Generating Puzzle...</span>
+                    <button id="cancel-book-btn">Cancel</button>
                 </div>
                 <div id="completion-modal">
                     <div class="modal-content">
@@ -224,10 +232,10 @@
             <button id="hint-btn">Hint</button>
             <button id="reveal-btn">Reveal Solution</button>
             <button id="download-pdf-btn">Download as PDF</button>
-            <button id="make-book-btn" disabled>Make Book</button>
+            <button id="make-book-btn">Make Book</button>
         </div>
 
-        <div id="custom-puzzle-panel">
+        <div id="custom-puzzle-panel" class="panel">
             <h3>Solve Your Own Puzzle</h3>
             <p>Enter an 81-character puzzle string. Use numbers 1-9 for clues and '0' or '.' for empty cells.</p>
             <textarea id="custom-puzzle-input" placeholder="e.g., 003020600900305001001806400008102900700000008006708200002609500800203009005010300"></textarea>
@@ -237,8 +245,39 @@
             </div>
         </div>
 
+        <div id="generate-book-panel" class="panel">
+            <h3>Make a Sudoku Book</h3>
+            <div class="book-options-grid">
+                <label for="book-title-input">Book Title:</label>
+                <input type="text" id="book-title-input" placeholder="e.g., My Sudoku Book">
+                
+                <label for="book-subtitle-input">Subtitle:</label>
+                <input type="text" id="book-subtitle-input" placeholder="e.g., By Alex Doe">
+
+                <label for="puzzle-count-input">Puzzles:</label>
+                <input type="number" id="puzzle-count-input" value="20" min="1" max="100" style="width: 70px;">
+                
+                <label for="puzzles-per-page-select">Puzzles/Page:</label>
+                <select id="puzzles-per-page-select">
+                    <option value="1">1</option>
+                    <option value="2" selected>2</option>
+                    <option value="4">4</option>
+                </select>
+
+                <label>Options:</label>
+                <div id="book-checkbox-options">
+                    <label><input type="checkbox" id="answer-key-checkbox" checked> Answer Key</label>
+                    <label><input type="checkbox" id="page-numbers-checkbox" checked> Page Numbers</label>
+                </div>
+            </div>
+            <div class="controls-grid">
+                <button id="create-book-btn">Create Book</button>
+                <button id="cancel-book-options-btn">Cancel</button>
+            </div>
+        </div>
+
         <div id="status-container"><p id="source-status"></p></div>
-        <div id="version-info">v1.4</div>
+        <div id="version-info">v1.5</div>
     </div>
     
     <script>
@@ -255,6 +294,7 @@
             revealBtn: document.getElementById('reveal-btn'),
             hintBtn: document.getElementById('hint-btn'),
             downloadPdfBtn: document.getElementById('download-pdf-btn'),
+            makeBookBtn: document.getElementById('make-book-btn'),
             completionModal: document.getElementById('completion-modal'),
             fullscreenBtn: document.getElementById('fullscreen-btn'),
             themeToggleBtn: document.getElementById('theme-toggle-btn'),
@@ -263,7 +303,11 @@
             customPuzzleBtn: document.getElementById('custom-puzzle-btn'),
             startCustomBtn: document.getElementById('start-custom-btn'),
             cancelCustomBtn: document.getElementById('cancel-custom-btn'),
-            customPuzzleInput: document.getElementById('custom-puzzle-input')
+            customPuzzleInput: document.getElementById('custom-puzzle-input'),
+            generateBookPanel: document.getElementById('generate-book-panel'),
+            createBookBtn: document.getElementById('create-book-btn'),
+            cancelBookBtn: document.getElementById('cancel-book-btn'),
+            cancelBookOptionsBtn: document.getElementById('cancel-book-options-btn')
         };
 
         let puzzleBoard = [], solutionBoard = [], userBoard = [];
@@ -272,6 +316,7 @@
         
         let hintedCells = new Set();
         let conflictCells = new Set();
+        let isGeneratingBook = false;
 
         // --- SUDOKU CORE LOGIC ---
 
@@ -294,13 +339,13 @@
 
         function isValid(board, row, col, num) {
             for (let i = 0; i < 9; i++) {
-                if (board[row][i] === num || board[i][col] === num) return false;
+                if ((board[row][i] === num && i !== col) || (board[i][col] === num && i !== row)) return false;
             }
             const boxRow = Math.floor(row / 3) * 3;
             const boxCol = Math.floor(col / 3) * 3;
             for (let r = 0; r < 3; r++) {
                 for (let c = 0; c < 3; c++) {
-                    if (board[boxRow + r][boxCol + c] === num) return false;
+                    if ((boxRow + r !== row || boxCol + c !== col) && board[boxRow + r][boxCol + c] === num) return false;
                 }
             }
             return true;
@@ -342,7 +387,7 @@
         function generateSudoku(difficulty) {
             const board = Array(9).fill(0).map(() => Array(9).fill(0));
             solve(board);
-            solutionBoard = JSON.parse(JSON.stringify(board));
+            const currentSolution = JSON.parse(JSON.stringify(board));
             
             let attempts;
             switch(difficulty) {
@@ -378,7 +423,7 @@
                     removedCount++;
                 }
             }
-            return board;
+            return { puzzle: board, solution: currentSolution };
         }
 
         // --- UI & DISPLAY LOGIC ---
@@ -426,9 +471,10 @@
         }
 
         function setUiLoading(isLoading, message = 'Generating Puzzle...') {
-            document.querySelectorAll('button, select').forEach(el => el.disabled = isLoading);
+            document.querySelectorAll('button, select, input, textarea').forEach(el => el.disabled = isLoading);
             ui.loaderText.textContent = message;
             ui.loader.classList.toggle('hidden', !isLoading);
+            ui.cancelBookBtn.style.display = 'none';
         }
 
         function updateGridDisplay() {
@@ -581,50 +627,26 @@
             updateGridDisplay();
         }
 
-        function showCustomPanel() {
+        function showPanel(panel) {
             ui.mainControls.style.display = 'none';
-            ui.customPuzzlePanel.style.display = 'block';
-        }
-
-        function hideCustomPanel() {
-            ui.mainControls.style.display = 'grid';
             ui.customPuzzlePanel.style.display = 'none';
+            ui.generateBookPanel.style.display = 'none';
+            if (panel) panel.style.display = 'block';
         }
 
         // --- PDF Generation ---
-
-        function drawSudokuOnPdfPage(doc, puzzleData) {
-            const { puzzle, difficulty, title } = puzzleData;
-            const pageW = doc.internal.pageSize.getWidth();
-            const margin = 20;
-            let currentY = margin;
-
-            doc.setFont('helvetica', 'bold').setFontSize(20).text(title, pageW / 2, currentY, { align: 'center' });
-            currentY += 8;
-            doc.setFont('helvetica', 'normal').setFontSize(12).text(`Difficulty: ${difficulty}`, pageW / 2, currentY, { align: 'center' });
-            currentY += 15;
-
-            const gridTotalSize = 160;
-            const contentWidth = gridTotalSize + 10;
-            const startX = (pageW - gridTotalSize) / 2;
-            const startY = currentY;
-
-            const contentHeight = gridTotalSize + 10;
-
-            doc.setDrawColor(0);
-            doc.setLineWidth(0.5);
-            doc.roundedRect((pageW - contentWidth) / 2, startY - 5, contentWidth, contentHeight, 3, 3, 'S');
-
+        function drawSingleSudokuGrid(doc, { puzzle, solution }, startX, startY, gridTotalSize, showSolution = false) {
             const cellSize = gridTotalSize / 9;
             const fontSize = (cellSize * 0.7) / 0.352778; 
             doc.setFont('helvetica', 'normal').setFontSize(fontSize).setTextColor(0);
 
             for (let r = 0; r < 9; r++) {
                 for (let c = 0; c < 9; c++) {
-                    if (puzzle[r][c] !== 0) {
+                    const num = showSolution ? solution[r][c] : puzzle[r][c];
+                    if (num !== 0) {
                         const x = startX + c * cellSize + cellSize / 2;
                         const y = startY + r * cellSize + cellSize / 2;
-                        doc.text(String(puzzle[r][c]), x, y, { align: 'center', baseline: 'middle' });
+                        doc.text(String(num), x, y, { align: 'center', baseline: 'middle' });
                     }
                 }
             }
@@ -647,12 +669,165 @@
             const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
             const difficulty = ui.status.textContent.split(': ')[1] || 'Custom';
             
-            drawSudokuOnPdfPage(doc, {
-                puzzle: puzzleBoard,
-                difficulty: difficulty,
-                title: "Sudoku Puzzle"
-            });
+            const puzzleData = { 
+                puzzle: puzzleBoard, 
+                difficulty: difficulty, 
+                title: "Sudoku Puzzle",
+                solution: solutionBoard
+            };
+            
+            // Re-using the book drawing function for a single page
+            drawPuzzlesOnPage(doc, [puzzleData], 0, {puzzlesPerPage: 1, includePageNumbers: false});
             doc.save(`Sudoku-${difficulty}.pdf`);
+        }
+
+        function drawPuzzlesOnPage(doc, puzzles, startIndex, options) {
+            const { puzzlesPerPage, includePageNumbers } = options;
+            const pageW = doc.internal.pageSize.getWidth();
+            const pageH = doc.internal.pageSize.getHeight();
+            const margin = 20;
+
+            const layouts = {
+                1: [{ x: (pageW - 160) / 2, y: 50, size: 160 }],
+                2: [{ x: (pageW - 120) / 2, y: 30, size: 120 }, { x: (pageW - 120) / 2, y: 155, size: 120 }],
+                4: [
+                    { x: margin, y: 30, size: 80 }, { x: pageW - 80 - margin, y: 30, size: 80 },
+                    { x: margin, y: 140, size: 80 }, { x: pageW - 80 - margin, y: 140, size: 80 }
+                ]
+            };
+            const layout = layouts[puzzlesPerPage] || layouts[1];
+
+            for (let i = 0; i < puzzlesPerPage; i++) {
+                const puzzleIndex = startIndex + i;
+                if (puzzleIndex >= puzzles.length) break;
+
+                const puzzleData = puzzles[puzzleIndex];
+                const { x, y, size } = layout[i];
+
+                doc.setFont('helvetica', 'bold').setFontSize(14).text(`Puzzle ${puzzleIndex + 1}`, x + size / 2, y - 8, { align: 'center' });
+                doc.setFont('helvetica', 'normal').setFontSize(10).text(`Difficulty: ${puzzleData.difficulty}`, x + size / 2, y - 2, { align: 'center' });
+                
+                drawSingleSudokuGrid(doc, puzzleData, x, y, size, false);
+            }
+
+            if (includePageNumbers) {
+                const pageNum = Math.floor(startIndex / puzzlesPerPage) + 1;
+                doc.setFont('helvetica', 'normal').setFontSize(8).text(String(pageNum), pageW / 2, pageH - 10, { align: 'center' });
+            }
+        }
+
+        function drawAnswerKey(doc, allPuzzles) {
+            doc.addPage();
+            const pageW = doc.internal.pageSize.getWidth();
+            const margin = 15;
+            doc.setFont('helvetica', 'bold').setFontSize(20).text("Answer Key", pageW / 2, margin, { align: 'center' });
+            
+            const puzzlesPerPage = 6;
+            const cols = 2;
+            const rows = 3;
+            const cellW = (pageW - margin * 2) / cols;
+            const cellH = (doc.internal.pageSize.getHeight() - margin * 2 - 10) / rows;
+
+            allPuzzles.forEach((puzzleData, index) => {
+                const pageIndex = Math.floor(index / puzzlesPerPage);
+                if (index > 0 && index % puzzlesPerPage === 0) {
+                    doc.addPage();
+                    doc.setFont('helvetica', 'bold').setFontSize(20).text("Answer Key", pageW / 2, margin, { align: 'center' });
+                }
+
+                const i = index % puzzlesPerPage;
+                const col = i % cols;
+                const row = Math.floor(i / cols);
+                const startX = margin + col * cellW;
+                const startY = margin + 10 + row * cellH;
+
+                doc.setFont('helvetica', 'bold').setFontSize(10).text(`Puzzle ${index + 1}`, startX + cellW / 2, startY + 8, { align: 'center' });
+                
+                const gridTotalSize = Math.min(cellW - 10, cellH - 20);
+                const gridStartX = startX + (cellW - gridTotalSize) / 2;
+                const gridStartY = startY + 12;
+                drawSingleSudokuGrid(doc, puzzleData, gridStartX, gridStartY, gridTotalSize, true);
+            });
+        }
+
+        async function downloadBook() {
+            const bookOptions = {
+                title: document.getElementById('book-title-input').value.trim(),
+                subtitle: document.getElementById('book-subtitle-input').value.trim(),
+                puzzleCount: parseInt(document.getElementById('puzzle-count-input').value, 10),
+                puzzlesPerPage: parseInt(document.getElementById('puzzles-per-page-select').value, 10),
+                includeSolutions: document.getElementById('answer-key-checkbox').checked,
+                includePageNumbers: document.getElementById('page-numbers-checkbox').checked
+            };
+
+            if (isNaN(bookOptions.puzzleCount) || bookOptions.puzzleCount < 1 || bookOptions.puzzleCount > 100) {
+                alert("Please enter a number of puzzles between 1 and 100.");
+                return;
+            }
+
+            isGeneratingBook = true;
+            setUiLoading(true, "Preparing Book...");
+            ui.cancelBookBtn.style.display = 'block';
+            
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+            doc.deletePage(1);
+
+            const allPuzzlesData = [];
+            try {
+                for (let i = 1; i <= bookOptions.puzzleCount; i++) {
+                    if (!isGeneratingBook) throw new Error("Cancelled");
+                    setUiLoading(true, `Generating Puzzle ${i} of ${bookOptions.puzzleCount}...`);
+                    await new Promise(r => setTimeout(r, 10)); // Allow UI to update
+                    const diff = ui.difficultySelect.value;
+                    const { puzzle, solution } = generateSudoku(diff);
+                    allPuzzlesData.push({
+                        puzzle,
+                        solution,
+                        difficulty: diff.charAt(0).toUpperCase() + diff.slice(1)
+                    });
+                }
+
+                if (!isGeneratingBook) throw new Error("Cancelled");
+                setUiLoading(true, `Building PDF...`);
+                await new Promise(r => setTimeout(r, 10));
+
+                if (bookOptions.title) {
+                    doc.addPage();
+                    const pageW = doc.internal.pageSize.getWidth();
+                    const pageH = doc.internal.pageSize.getHeight();
+                    doc.setFont('helvetica', 'bold').setFontSize(30).text(bookOptions.title, pageW / 2, pageH / 2 - 10, { align: 'center' });
+                    if (bookOptions.subtitle) doc.setFont('helvetica', 'normal').setFontSize(16).text(bookOptions.subtitle, pageW / 2, pageH / 2 + 5, { align: 'center' });
+                }
+
+                for (let i = 0; i < allPuzzlesData.length; i += bookOptions.puzzlesPerPage) {
+                    if (!isGeneratingBook) throw new Error("Cancelled");
+                    doc.addPage();
+                    drawPuzzlesOnPage(doc, allPuzzlesData, i, bookOptions);
+                }
+                
+                if (bookOptions.includeSolutions) {
+                    if (!isGeneratingBook) throw new Error("Cancelled");
+                    setUiLoading(true, `Generating Answer Key...`);
+                    await new Promise(r => setTimeout(r, 10));
+                    drawAnswerKey(doc, allPuzzlesData);
+                }
+
+                const safeTitle = (bookOptions.title.replace(/[^a-zA-Z0-9]/g, '-') || `Sudoku-Book`).substring(0, 50);
+                doc.save(`${safeTitle}.pdf`);
+                ui.status.textContent = "Book successfully generated!";
+
+            } catch (error) {
+                if (error.message === "Cancelled") {
+                    ui.status.textContent = "Book generation cancelled.";
+                } else {
+                    ui.status.textContent = `Error: ${error.message}`;
+                }
+            } finally {
+                isGeneratingBook = false;
+                setUiLoading(false);
+                showPanel(null);
+            }
         }
 
 
@@ -667,10 +842,10 @@
 
         document.addEventListener('keydown', (e) => {
             const key = e.key.toLowerCase();
-            if(ui.completionModal.classList.contains('visible') || ui.customPuzzlePanel.style.display === 'block') return;
+            if(ui.completionModal.classList.contains('visible') || ui.customPuzzlePanel.style.display === 'block' || ui.generateBookPanel.style.display === 'block') return;
 
             if (key === 'f') { e.preventDefault(); toggleFullScreen(); return; }
-            if (key === 'n') { e.preventDefault(); startNewGame(new Promise(res => { const diff = ui.difficultySelect.value; res({ puzzle: generateSudoku(diff), solution: solutionBoard, source: `Difficulty: ${diff.charAt(0).toUpperCase() + diff.slice(1)}` }) })); return; }
+            if (key === 'n') { e.preventDefault(); startNewGame(new Promise(res => { const diff = ui.difficultySelect.value; res({ puzzle: generateSudoku(diff).puzzle, solution: solutionBoard, source: `Difficulty: ${diff.charAt(0).toUpperCase() + diff.slice(1)}` }) })); return; }
             if (key === 'h') { e.preventDefault(); giveHint(); return; }
 
             if(selectedCell.row === -1) return;
@@ -710,14 +885,14 @@
         setTheme(savedTheme || (prefersDark ? 'dark' : 'light'));
         
         // --- INITIALIZATION ---
-        ui.generateBtn.addEventListener('click', () => startNewGame(new Promise(res => { const diff = ui.difficultySelect.value; res({ puzzle: generateSudoku(diff), solution: solutionBoard, source: `Difficulty: ${diff.charAt(0).toUpperCase() + diff.slice(1)}` }) })));
+        ui.generateBtn.addEventListener('click', () => startNewGame(new Promise(res => { const diff = ui.difficultySelect.value; const data = generateSudoku(diff); res({ ...data, source: `Difficulty: ${diff.charAt(0).toUpperCase() + diff.slice(1)}` }) })));
         ui.revealBtn.addEventListener('click', revealSolution);
         ui.hintBtn.addEventListener('click', giveHint);
         ui.downloadPdfBtn.addEventListener('click', downloadPdf);
-        ui.difficultySelect.addEventListener('change', () => startNewGame(new Promise(res => { const diff = ui.difficultySelect.value; res({ puzzle: generateSudoku(diff), solution: solutionBoard, source: `Difficulty: ${diff.charAt(0).toUpperCase() + diff.slice(1)}` }) })));
+        ui.difficultySelect.addEventListener('change', () => startNewGame(new Promise(res => { const diff = ui.difficultySelect.value; const data = generateSudoku(diff); res({ ...data, source: `Difficulty: ${diff.charAt(0).toUpperCase() + diff.slice(1)}` }) })));
         
-        ui.customPuzzleBtn.addEventListener('click', showCustomPanel);
-        ui.cancelCustomBtn.addEventListener('click', hideCustomPanel);
+        ui.customPuzzleBtn.addEventListener('click', () => showPanel(ui.customPuzzlePanel));
+        ui.cancelCustomBtn.addEventListener('click', () => showPanel(null));
         ui.startCustomBtn.addEventListener('click', () => {
              startNewGame(new Promise((resolve, reject) => {
                 const input = ui.customPuzzleInput.value.replace(/\./g, '0').trim();
@@ -741,15 +916,20 @@
             }));
         });
         
+        ui.makeBookBtn.addEventListener('click', () => showPanel(ui.generateBookPanel));
+        ui.cancelBookOptionsBtn.addEventListener('click', () => showPanel(null));
+        ui.createBookBtn.addEventListener('click', downloadBook);
+        ui.cancelBookBtn.addEventListener('click', () => { isGeneratingBook = false; });
+
         ui.fullscreenBtn.addEventListener('click', toggleFullScreen);
         document.querySelector('#completion-modal button').addEventListener('click', () => {
              ui.completionModal.classList.remove('visible');
-             startNewGame(new Promise(res => { const diff = ui.difficultySelect.value; res({ puzzle: generateSudoku(diff), solution: solutionBoard, source: `Difficulty: ${diff.charAt(0).toUpperCase() + diff.slice(1)}` }) }));
+             startNewGame(new Promise(res => { const diff = ui.difficultySelect.value; const data = generateSudoku(diff); res({ ...data, source: `Difficulty: ${diff.charAt(0).toUpperCase() + diff.slice(1)}` }) }));
         });
         document.addEventListener('fullscreenchange', updateGridDisplay);
         window.addEventListener('resize', () => { if (!document.fullscreenElement) { updateGridDisplay(); } });
 
-        startNewGame(new Promise(res => { const diff = ui.difficultySelect.value; res({ puzzle: generateSudoku(diff), solution: solutionBoard, source: `Difficulty: ${diff.charAt(0).toUpperCase() + diff.slice(1)}` }) }));
+        startNewGame(new Promise(res => { const diff = ui.difficultySelect.value; const data = generateSudoku(diff); res({ ...data, source: `Difficulty: ${diff.charAt(0).toUpperCase() + diff.slice(1)}` }) }));
     </script>
 </body>
 </html>
