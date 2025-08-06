@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sudoku Generator v1.6</title>
+    <title>Sudoku Generator v1.7</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
         :root {
@@ -186,7 +186,7 @@
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>
                 </button>
                 <button id="theme-toggle-btn" title="Toggle Theme">
-                    <svg class="icon-sun" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zM2 13h2c.55 0 1-.45 1-1s-.45-1-1-1H2c-.55 0-1 .45-1 1s.45 1 1 1zm18 0h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1zM11 2v2c0 .55.45 1 1 1s1-.45 1-1V2c0-.55-.45-1-1-1s-1 .45-1 1zm0 18v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1s-1 .45-1 1zM5.64 5.64c.39.39 1.02.39 1.41 0 .39-.39.39-1.02 0-1.41-.39-.39-1.02-.39-1.41 0-.39.39-.39 1.02 0 1.41zm12.73 12.73c.39.39 1.02.39 1.41 0 .39-.39.39-1.02 0-1.41-.39-.39-1.02-.39-1.41 0-.39.39-.39 1.02 0 1.41zM5.64 18.36c-.39.39-.39 1.02 0 1.41.39.39 1.02.39 1.41 0 .39-.39.39-1.02 0-1.41-.39-.39-1.02-.39-1.41 0zM18.36 5.64c-.39.39-.39 1.02 0 1.41.39.39 1.02.39 1.41 0 .39-.39.39-1.02 0-1.41-.39-.38-1.03-.38-1.41 0z"/></svg>
+                    <svg class="icon-sun" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zM2 13h2c.55 0 1-.45 1-1s-.45-1-1-1H2c-.55 0-1 .45-1 1s.45 1 1 1zm18 0h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1zM11 2v2c0 .55.45 1 1 1s1-.45 1-1V2c0-.55-.45-1-1-1s-1 .45-1 1zm0 18v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1s-1 .45-1 1zM5.64 5.64c.39.39 1.02.39 1.41 0 .39-.39.39-1.02 0-1.41-.39-.39-1.02-.39-1.41 0-.39.39-.39 1.02 0 1.41zm12.73 12.73c.39.39 1.02.39 1.41 0 .39-.39.39-1.02 0-1.41-.39-.39-1.02-.39-1.41 0-.39.39-.39 1.02 0 1.41zM5.64 18.36c-.39.39-.39 1.02 0 1.41.39.39 1.02.39 1.41 0 .39-.39.39-1.02 0-1.41-.39-.39-1.02-.39-1.41 0zM18.36 5.64c-.39.39-.39-1.02 0 1.41.39.39 1.02.39 1.41 0 .39-.39.39-1.02 0-1.41-.39-.38-1.03-.38-1.41 0z"/></svg>
                     <svg class="icon-moon" xmlns="http://www.w3.org/2000/svg" enable-background="new 0 0 24 24" viewBox="0 0 24 24"><path d="M12,3c-4.97,0-9,4.03-9,9s4.03,9,9,9s9-4.03,9-9c0-0.46-0.04-0.92-0.11-1.36c-0.98,1.37-2.58,2.26-4.39,2.26 c-2.98,0-5.4-2.42-5.4-5.4c0-1.81,0.89-3.42,2.26-4.39C12.92,3.04,12.46,3,12,3z"/></svg>
                 </button>
             </div>
@@ -277,7 +277,7 @@
         </div>
 
         <div id="status-container"><p id="source-status"></p></div>
-        <div id="version-info">v1.6</div>
+        <div id="version-info">v1.7</div>
     </div>
     
     <script>
@@ -628,16 +628,18 @@
         }
 
         function showPanel(panel) {
-            ui.mainControls.style.display = 'none';
+            ui.mainControls.style.display = 'grid'; // Use grid for main controls
             ui.customPuzzlePanel.style.display = 'none';
             ui.generateBookPanel.style.display = 'none';
-            if (panel) panel.style.display = 'block';
+            if (panel) {
+                ui.mainControls.style.display = 'none';
+                panel.style.display = 'block';
+            }
         }
 
         // --- PDF Generation ---
         function drawSingleSudokuGrid(doc, { puzzle, solution }, startX, startY, gridTotalSize, showSolution = false) {
             const cellSize = gridTotalSize / 9;
-            // The following converts mm to points and applies a ratio, same as the web version.
             const fontSize = (cellSize * 0.5) / 0.352778; 
             doc.setFont('helvetica', 'normal').setFontSize(fontSize).setTextColor(0);
 
@@ -677,7 +679,6 @@
                 solution: solutionBoard
             };
             
-            // Re-using the book drawing function for a single page
             drawPuzzlesOnPage(doc, [puzzleData], 0, {puzzlesPerPage: 1, includePageNumbers: false});
             doc.save(`Sudoku-${difficulty}.pdf`);
         }
@@ -687,10 +688,14 @@
             const pageW = doc.internal.pageSize.getWidth();
             const pageH = doc.internal.pageSize.getHeight();
             const margin = 20;
+            const cornerRadius = 3;
 
             const layouts = {
                 1: [{ x: (pageW - 160) / 2, y: 50, size: 160 }],
-                2: [{ x: (pageW - 120) / 2, y: 30, size: 120 }, { x: (pageW - 120) / 2, y: 155, size: 120 }],
+                2: [
+                    { x: (pageW - 110) / 2, y: 40, size: 110 }, 
+                    { x: (pageW - 110) / 2, y: 165, size: 110 }
+                ],
                 4: [
                     { x: margin, y: 30, size: 80 }, { x: pageW - 80 - margin, y: 30, size: 80 },
                     { x: margin, y: 140, size: 80 }, { x: pageW - 80 - margin, y: 140, size: 80 }
@@ -707,6 +712,10 @@
 
                 doc.setFont('helvetica', 'bold').setFontSize(14).text(`Puzzle ${puzzleIndex + 1}`, x + size / 2, y - 8, { align: 'center' });
                 doc.setFont('helvetica', 'normal').setFontSize(10).text(`Difficulty: ${puzzleData.difficulty}`, x + size / 2, y - 2, { align: 'center' });
+                
+                doc.setDrawColor(0);
+                doc.setLineWidth(0.5);
+                doc.roundedRect(x, y, size, size, cornerRadius, cornerRadius, 'S');
                 
                 drawSingleSudokuGrid(doc, puzzleData, x, y, size, false);
             }
@@ -912,7 +921,7 @@
                 countSolutions(tempBoard);
                 if (solutionCounter > 1) return reject(new Error("This puzzle has multiple solutions and is not valid."));
                 
-                showPanel(null); // Hide panel on success
+                showPanel(null);
                 resolve({ puzzle: pBoard, solution: sBoard, source: 'Custom Puzzle' });
             }));
         });
