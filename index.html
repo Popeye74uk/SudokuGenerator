@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sudoku Generator v0.7</title>
+    <title>Sudoku Generator v0.8</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
         :root {
@@ -13,7 +13,8 @@
             --color-text-secondary: #6c757d;
             --color-heading: #343a40;
             --color-grid-lines: #adb5bd;
-            --color-grid-box-lines: #343a40;
+            /* --- Border Color Fix (Light Mode) --- */
+            --color-grid-box-lines: #212529; 
             --color-grid-cell-bg: #fff;
             --color-grid-given-text: #000;
             --color-grid-user-text: #007bff;
@@ -43,7 +44,8 @@
             --color-text-secondary: #888;
             --color-heading: #f1f1f1;
             --color-grid-lines: #444;
-            --color-grid-box-lines: #c5c5c5;
+            /* --- Border Color Fix (Dark Mode) --- */
+            --color-grid-box-lines: #e0e0e0;
             --color-grid-cell-bg: #2a2a2a;
             --color-grid-given-text: #fff;
             --color-grid-user-text: #58a6ff;
@@ -72,7 +74,6 @@
         #grid-wrapper { position: relative; }
         #grid-wrapper:fullscreen { background-color: var(--color-background); padding: 20px; display: flex; justify-content: center; align-items: center; }
         
-        /* --- Grid Border Rework --- */
         #grid {
             display: grid;
             grid-template-columns: repeat(9, auto);
@@ -80,7 +81,7 @@
             border-right: 3px solid var(--color-grid-box-lines);
             border-bottom: 3px solid var(--color-grid-box-lines);
             border-radius: 5px;
-            overflow: hidden; /* Ensures inner borders don't leak past radius */
+            overflow: hidden; 
         }
 
         .grid-cell {
@@ -99,9 +100,11 @@
 
         .grid-cell[data-row="0"], .grid-cell[data-row="3"], .grid-cell[data-row="6"] {
             border-top-width: 3px;
+            border-top-color: var(--color-grid-box-lines);
         }
         .grid-cell[data-col="0"], .grid-cell[data-col="3"], .grid-cell[data-col="6"] {
             border-left-width: 3px;
+            border-left-color: var(--color-grid-box-lines);
         }
 
         .grid-cell.given-cell { color: var(--color-grid-given-text); font-weight: normal;}
@@ -207,7 +210,7 @@
         </div>
 
         <div id="status-container"><p id="source-status"></p></div>
-        <div id="version-info">v0.7</div>
+        <div id="version-info">v0.8</div>
     </div>
 
     <div id="completion-modal" onclick="this.classList.remove('visible')">
