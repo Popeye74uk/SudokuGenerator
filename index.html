@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sudoku Generator v0.1</title>
+    <title>Sudoku Generator v0.2</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
         :root {
@@ -58,7 +58,7 @@
 
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; font-size: 16px; color: var(--color-text-primary); background-color: var(--color-background); padding: 20px; margin: 0; display: flex; justify-content: center; align-items: flex-start; min-height: 100vh; transition: background-color 0.3s, color 0.3s; }
         .container { width: 100%; max-width: 900px; margin: 0 auto; text-align: center; }
-        .main-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; max-width: 500px; margin-left: auto; margin-right: auto; }
+        .main-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; max-width: 600px; margin-left: auto; margin-right: auto; }
         .main-header h1 { flex-grow: 1; margin: 0; padding: 0 10px; text-align: center; }
         .header-buttons { display: flex; gap: 10px; }
         .header-spacer { min-width: 100px; flex-shrink: 0; }
@@ -67,7 +67,10 @@
         #grid-wrapper { position: relative; }
         #grid-wrapper:fullscreen { background-color: var(--color-background); padding: 20px; display: flex; justify-content: center; align-items: center; }
         
-        #grid { display: grid; grid-template-columns: repeat(9, auto); border: 3px solid var(--color-grid-box-lines); border-radius: 5px; background-color: var(--color-grid-box-lines); gap: 1px; }
+        /* --- Grid Layout Fix --- */
+        #grid { border: 3px solid var(--color-grid-box-lines); border-radius: 5px; background-color: var(--color-grid-box-lines); display: flex; flex-direction: column; gap: 1px; }
+        .grid-row { display: grid; gap: 1px; }
+
         .grid-cell { background-color: var(--color-grid-cell-bg); color: var(--color-grid-user-text); font-weight: bold; display: flex; justify-content: center; align-items: center; cursor: pointer; user-select: none; transition: background-color 0.2s; font-size: 1.5em; }
         .grid-cell.given-cell { color: var(--color-grid-given-text); cursor: not-allowed; font-weight: normal;}
         .grid-cell.selected { background-color: var(--color-grid-selected-bg); }
@@ -173,7 +176,7 @@
         </div>
 
         <div id="status-container"><p id="source-status"></p></div>
-        <div id="version-info">v0.1</div>
+        <div id="version-info">v0.2</div>
     </div>
 
     <div id="completion-modal" onclick="this.classList.remove('visible')">
@@ -193,6 +196,7 @@
         const ui = {
             grid: document.getElementById('grid'),
             gridWrapper: document.getElementById('grid-wrapper'),
+            puzzleContainer: document.getElementById('puzzle-container'),
             loader: document.getElementById('loader'),
             loaderText: document.getElementById('loader-text'),
             difficultySelect: document.getElementById('difficulty-select'),
@@ -328,18 +332,20 @@
         function updateGridDisplay() {
             ui.grid.innerHTML = '';
             
-            const containerSize = Math.min(window.innerWidth * 0.9, window.innerHeight * 0.7, 500);
+            // --- Grid Sizing Fix ---
+            // Use the container's width for responsive scaling, similar to the other generators.
+            // Capped at 600px, a comfortable maximum size for a 9x9 grid.
+            const containerSize = Math.min(ui.puzzleContainer.clientWidth, 600);
             const cellSize = Math.floor(containerSize / 9);
-            ui.grid.style.width = `${cellSize * 9 + 8}px`; // +8 for gaps and borders
+
+            ui.grid.style.width = `${cellSize * 9 + 8}px`; // +8 to account for 1px gaps
             ui.grid.style.height = `${cellSize * 9 + 8}px`;
 
             for (let r = 0; r < 9; r++) {
                 const rowDiv = document.createElement('div');
                 rowDiv.className = 'grid-row';
-                rowDiv.style.display = 'grid';
                 rowDiv.style.gridTemplateColumns = `repeat(9, ${cellSize}px)`;
-                rowDiv.style.gap = '1px';
-
+                
                 for (let c = 0; c < 9; c++) {
                     const cell = document.createElement('div');
                     cell.className = 'grid-cell';
@@ -347,6 +353,7 @@
                     cell.dataset.col = c;
                     cell.style.width = `${cellSize}px`;
                     cell.style.height = `${cellSize}px`;
+                    cell.style.fontSize = `${cellSize * 0.5}px`;
                     
                     if (puzzleBoard[r][c] !== 0) {
                         cell.textContent = puzzleBoard[r][c];
@@ -484,17 +491,20 @@
                 selectedCell.row = parseInt(cell.dataset.row);
                 selectedCell.col = parseInt(cell.dataset.col);
                 updateGridDisplay();
-                cell.focus();
+                // No need to call .focus() here, keyboard input is global
             }
         });
 
         document.addEventListener('keydown', (e) => {
+            if(ui.completionModal.classList.contains('visible')) return;
+            
             if (selectedCell.row !== -1) {
                 const { row, col } = selectedCell;
                 if (e.key >= '1' && e.key <= '9') {
                     userBoard[row][col] = parseInt(e.key);
                     updateGridDisplay();
-                } else if (e.key === 'Backspace' || e.key === 'Delete') {
+                } else if (e.key === 'Backspace' || e.key === 'Delete' || e.key === '0') {
+                    e.preventDefault();
                     userBoard[row][col] = 0;
                     updateGridDisplay();
                 }
