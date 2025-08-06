@@ -139,8 +139,29 @@
         .flash-conflict { animation: flash-red-bg 0.5s ease; }
         @keyframes flash-red-bg { 50% { background-color: var(--color-incorrect-bg); } }
 
-        .notes-grid { display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr); width: 100%; height: 100%; align-items: center; justify-items: center; }
-        .note-digit { color: var(--color-grid-notes-text); }
+        .answer-digit, .notes-grid {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: none; /* Hidden by default */
+        }
+        .answer-digit {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .notes-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            grid-template-rows: repeat(3, 1fr);
+            align-items: center;
+            justify-items: center;
+        }
+        .note-digit {
+            color: var(--color-grid-notes-text);
+        }
 
         .grid-loader { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center; flex-direction: column; gap: 15px; z-index: 10; font-size: 1.1em; color: white; border-radius: 4px; }
         .book-loader { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: var(--color-background); display: flex; justify-content: center; align-items: center; flex-direction: column; gap: 20px; z-index: 100; color: var(--color-text-primary); }
@@ -575,10 +596,11 @@
             for (let r = 0; r < 9; r++) {
                 for (let c = 0; c < 9; c++) {
                     const cell = ui.grid.querySelector(`[data-row='${r}'][data-col='${c}']`);
-                    
-                    // Clear previous classes and content
                     cell.className = 'grid-cell';
-                    cell.innerHTML = '';
+                    cell.style.fontSize = `${cellSize * 0.5}px`;
+                    
+                    const answerDigit = cell.querySelector('.answer-digit');
+                    const notesGrid = cell.querySelector('.notes-grid');
 
                     if (isSudokuXMode && (r === c || r + c === 8)) {
                         cell.classList.add('diagonal-cell');
@@ -594,18 +616,21 @@
                     if (isHinted) cell.classList.add('hint-cell');
 
                     if (currentValue !== 0) {
-                        cell.textContent = currentValue;
+                        answerDigit.textContent = currentValue;
+                        answerDigit.style.display = 'flex';
+                        notesGrid.style.display = 'none';
                     } else if (notesBoard[r][c].size > 0) {
-                        const notesGrid = document.createElement('div');
-                        notesGrid.className = 'notes-grid';
+                        answerDigit.style.display = 'none';
+                        notesGrid.style.display = 'grid';
                         notesGrid.style.fontSize = `${cellSize * 0.25}px`;
-                        for(let i=1; i<=9; i++) {
-                            const noteDigit = document.createElement('div');
-                            noteDigit.className = 'note-digit';
-                            noteDigit.textContent = notesBoard[r][c].has(i) ? i : '';
-                            notesGrid.appendChild(noteDigit);
+                        const noteDigits = notesGrid.children;
+                        for(let i=0; i<9; i++) {
+                            noteDigits[i].textContent = notesBoard[r][c].has(i+1) ? i+1 : '';
                         }
-                        cell.appendChild(notesGrid);
+                    } else {
+                        answerDigit.textContent = '';
+                        answerDigit.style.display = 'none';
+                        notesGrid.style.display = 'none';
                     }
                     
                     if (conflictCells.has(coordKey)) cell.classList.add('conflict-cell');
@@ -645,18 +670,6 @@
                 solutionBoard = solution;
                 userBoard = Array(9).fill(0).map(() => Array(9).fill(0));
                 notesBoard = Array(9).fill(0).map(() => Array(9).fill(0).map(() => new Set()));
-                
-                // Pre-populate grid cells once
-                ui.grid.innerHTML = '';
-                 for (let r = 0; r < 9; r++) {
-                    for (let c = 0; c < 9; c++) {
-                        const cell = document.createElement('div');
-                        cell.className = 'grid-cell';
-                        cell.dataset.row = r;
-                        cell.dataset.col = c;
-                        ui.grid.appendChild(cell);
-                    }
-                }
                 
                 handleCellClick(-1, -1); 
                 
@@ -1043,6 +1056,32 @@
              defaultGame();
         });
         
+        function setupGrid() {
+            for (let r = 0; r < 9; r++) {
+                for (let c = 0; c < 9; c++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'grid-cell';
+                    cell.dataset.row = r;
+                    cell.dataset.col = c;
+
+                    const answerDigit = document.createElement('span');
+                    answerDigit.className = 'answer-digit';
+                    cell.appendChild(answerDigit);
+
+                    const notesGrid = document.createElement('div');
+                    notesGrid.className = 'notes-grid';
+                    for(let i=1; i<=9; i++) {
+                        const noteDigit = document.createElement('div');
+                        noteDigit.className = 'note-digit';
+                        notesGrid.appendChild(noteDigit);
+                    }
+                    cell.appendChild(notesGrid);
+                    
+                    ui.grid.appendChild(cell);
+                }
+            }
+        }
+        
         function setupNumberPanel() {
             const notesCell = document.createElement('div');
             notesCell.className = 'number-cell';
@@ -1088,6 +1127,7 @@
         document.addEventListener('fullscreenchange', updateGridDisplay);
         window.addEventListener('resize', updateGridDisplay);
 
+        setupGrid();
         setupNumberPanel();
         defaultGame();
     </script>
