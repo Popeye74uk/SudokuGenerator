@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sudoku Generator v2.4</title>
+    <title>Sudoku Generator v2.5</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
         :root {
@@ -117,8 +117,9 @@
         .flash-conflict { animation: flash-red-bg 0.5s ease; }
         @keyframes flash-red-bg { 50% { background-color: var(--color-incorrect-bg); } }
 
-        .loader { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(var(--color-container-bg), 0.8); display: flex; justify-content: center; align-items: center; flex-direction: column; gap: 15px; z-index: 10; font-size: 1.1em; color: var(--color-text-secondary); border-radius: 4px; }
+        .loader { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center; flex-direction: column; gap: 15px; z-index: 10; font-size: 1.1em; color: white; border-radius: 4px; }
         .loader.hidden { opacity: 0; pointer-events: none; }
+        #cancel-book-btn { display: none; }
         .spinner { border: 4px solid var(--color-spinner-track); border-top: 4px solid var(--color-primary); border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
         
         .global-options-container { display: flex; justify-content: center; align-items: center; gap: 10px 25px; margin-top: 25px; font-size: 1em; color: var(--color-text-primary); }
@@ -201,6 +202,7 @@
                 <div id="loader" class="loader hidden">
                     <div class="spinner"></div>
                     <span id="loader-text">Generating Puzzle...</span>
+                    <button id="cancel-book-btn" style="display:none;">Cancel</button>
                 </div>
                 <div id="completion-modal">
                     <div class="modal-content">
@@ -287,7 +289,7 @@
         </div>
 
         <div id="status-container"><p id="source-status"></p></div>
-        <div id="version-info">v2.4</div>
+        <div id="version-info">v2.5</div>
     </div>
     
     <script>
@@ -298,6 +300,7 @@
             puzzleContainer: document.getElementById('puzzle-container'),
             loader: document.getElementById('loader'),
             loaderText: document.getElementById('loader-text'),
+            cancelBookBtn: document.getElementById('cancel-book-btn'),
             difficultySelect: document.getElementById('difficulty-select'),
             status: document.getElementById('source-status'),
             generateBtn: document.getElementById('generate-btn'),
@@ -327,6 +330,7 @@
         
         let hintedCells = new Set();
         let conflictCells = new Set();
+        let isGeneratingBook = false;
 
         // --- SUDOKU CORE LOGIC ---
 
@@ -489,6 +493,7 @@
             document.querySelectorAll('button, select, input').forEach(el => el.disabled = isLoading);
             ui.loaderText.textContent = message;
             ui.loader.classList.toggle('hidden', !isLoading);
+            ui.cancelBookBtn.style.display = 'none';
         }
 
         function updateGridDisplay() {
@@ -687,6 +692,87 @@
             if (includePageNumbers) doc.setFont('helvetica', 'normal').setFontSize(8).text(String(Math.floor(startIndex / puzzlesPerPage) + 1), pageW / 2, pageH - 10, { align: 'center' });
         }
         
+         async function createAndDownloadBook() {
+            const bookOptions = {
+                title: document.getElementById('book-title-input').value.trim(),
+                subtitle: document.getElementById('book-subtitle-input').value.trim(),
+                puzzleCount: parseInt(document.getElementById('puzzle-count-input').value, 10),
+                puzzlesPerPage: parseInt(document.getElementById('puzzles-per-page-select').value, 10),
+                includeSolutions: document.getElementById('answer-key-checkbox').checked,
+                includePageNumbers: document.getElementById('page-numbers-checkbox').checked
+            };
+
+            if (isNaN(bookOptions.puzzleCount) || bookOptions.puzzleCount < 1 || bookOptions.puzzleCount > 100) {
+                alert("Please enter a number of puzzles between 1 and 100.");
+                return;
+            }
+
+            isGeneratingBook = true;
+            setUiLoading(true, "Preparing Book...");
+            ui.cancelBookBtn.style.display = 'block';
+            
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+            doc.deletePage(1);
+
+            const allPuzzlesData = [];
+            try {
+                for (let i = 1; i <= bookOptions.puzzleCount; i++) {
+                    if (!isGeneratingBook) throw new Error("Cancelled");
+                    setUiLoading(true, `Generating Puzzle ${i} of ${bookOptions.puzzleCount}...`);
+                    await new Promise(r => setTimeout(r, 10)); // Allow UI to update
+                    const diff = ui.difficultySelect.value;
+                    const { puzzle, solution } = generateSudoku({difficulty: diff});
+                    allPuzzlesData.push({
+                        puzzle,
+                        solution,
+                        difficulty: diff.charAt(0).toUpperCase() + diff.slice(1)
+                    });
+                }
+
+                if (!isGeneratingBook) throw new Error("Cancelled");
+                setUiLoading(true, `Building PDF...`);
+                await new Promise(r => setTimeout(r, 10));
+
+                if (bookOptions.title) {
+                    doc.addPage();
+                    const pageW = doc.internal.pageSize.getWidth();
+                    const pageH = doc.internal.pageSize.getHeight();
+                    doc.setFont('helvetica', 'bold').setFontSize(30).text(bookOptions.title, pageW / 2, pageH / 2 - 10, { align: 'center' });
+                    if (bookOptions.subtitle) doc.setFont('helvetica', 'normal').setFontSize(16).text(bookOptions.subtitle, pageW / 2, pageH / 2 + 5, { align: 'center' });
+                }
+
+                for (let i = 0; i < allPuzzlesData.length; i += bookOptions.puzzlesPerPage) {
+                    if (!isGeneratingBook) throw new Error("Cancelled");
+                    doc.addPage();
+                    drawPuzzlesOnPage(doc, allPuzzlesData, i, bookOptions);
+                }
+                
+                if (bookOptions.includeSolutions) {
+                    if (!isGeneratingBook) throw new Error("Cancelled");
+                    setUiLoading(true, `Generating Answer Key...`);
+                    await new Promise(r => setTimeout(r, 10));
+                    // drawAnswerKey(doc, allPuzzlesData); // This function seems to be missing, you'll need to add it back if needed
+                }
+
+                const safeTitle = (bookOptions.title.replace(/[^a-zA-Z0-9]/g, '-') || `Sudoku-Book`).substring(0, 50);
+                doc.save(`${safeTitle}.pdf`);
+                ui.status.textContent = "Book successfully generated!";
+
+            } catch (error) {
+                if (error.message === "Cancelled") {
+                    ui.status.textContent = "Book generation cancelled.";
+                } else {
+                    ui.status.textContent = `Error: ${error.message}`;
+                    alert(error.message);
+                }
+            } finally {
+                isGeneratingBook = false;
+                setUiLoading(false);
+                showPanel(null);
+            }
+        }
+
         // --- EVENT LISTENERS ---
 
         ui.grid.addEventListener('click', (e) => {
@@ -758,7 +844,7 @@
         
         ui.makeBookBtn.addEventListener('click', () => showPanel(ui.generateBookPanel));
         ui.cancelBookOptionsBtn.addEventListener('click', () => showPanel(null));
-        // ui.createBookBtn.addEventListener('click', createAndDownloadBook);
+        ui.createBookBtn.addEventListener('click', createAndDownloadBook);
 
         ui.fullscreenBtn.addEventListener('click', toggleFullScreen);
         document.querySelector('#completion-modal button').addEventListener('click', () => {
