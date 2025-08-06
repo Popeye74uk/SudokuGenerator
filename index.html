@@ -150,6 +150,12 @@
         .book-options-grid { display: grid; grid-template-columns: auto 1fr; gap: 10px 15px; align-items: center; }
         .book-options-grid label { text-align: right; }
         #book-checkbox-options { display: flex; gap: 20px; align-items: center; justify-content: flex-start; }
+        
+        #number-panel { display: flex; justify-content: center; gap: 5px; margin: 20px auto 0; max-width: fit-content; }
+        .number-cell { width: 40px; height: 40px; display: flex; justify-content: center; align-items: center; font-size: 1.5em; font-weight: bold; border: 1px solid var(--color-grid-lines); border-radius: 4px; cursor: pointer; transition: all 0.2s; background-color: var(--color-grid-cell-bg); }
+        .number-cell:nth-child(3n) { margin-right: 5px; }
+        .number-cell:hover { background-color: var(--color-grid-related-bg); }
+        .number-cell.used-up { background-color: var(--color-text-secondary); color: var(--color-text-primary); text-decoration: line-through; cursor: default; }
 
         #status-container { text-align: center; margin-top: 15px; font-style: italic; min-height: 20px; color: var(--color-text-secondary); }
         #version-info { text-align: center; margin-top: 20px; font-size: 0.8em; color: var(--color-grid-lines); }
@@ -175,6 +181,7 @@
             .main-header h1 { font-size: 1.8em; }
             .controls-grid { grid-template-columns: 1fr; }
             .grid-cell { font-size: 1.2em; }
+            .number-cell { width: 32px; height: 32px; font-size: 1.2em; }
             .book-options-grid, .create-options-grid { grid-template-columns: 1fr; }
             .book-options-grid label, .create-options-grid label { text-align: left; }
         }
@@ -217,7 +224,8 @@
                 </div>
             </div>
         </div>
-        
+        <div id="number-panel"></div>
+
         <div class="global-options-container">
             <div class="option-group">
                 <label for="difficulty-select"><b>Difficulty:</b></label>
@@ -296,6 +304,7 @@
         // --- GLOBAL VARIABLES & CONSTANTS ---
         const ui = {
             grid: document.getElementById('grid'),
+            numberPanel: document.getElementById('number-panel'),
             gridWrapper: document.getElementById('grid-wrapper'),
             puzzleContainer: document.getElementById('puzzle-container'),
             loader: document.getElementById('loader'),
@@ -431,7 +440,6 @@
             }
             shuffle(removalCandidates);
 
-            // If no custom structure, use difficulty to remove cells
             if (mandatoryClues.size === 0) {
                 const cluesToKeep = getCluesForDifficulty(options.difficulty);
                 const cellsToRemoveCount = 81 - cluesToKeep;
@@ -495,6 +503,19 @@
             ui.loader.classList.toggle('hidden', !isLoading);
             ui.cancelBookBtn.style.display = 'none';
         }
+        
+        function updateNumberPanel() {
+            const counts = {};
+            for(let i = 1; i <= 9; i++) counts[i] = 0;
+
+            const fullBoard = puzzleBoard.map((row, r) => row.map((cell, c) => cell === 0 ? userBoard[r][c] : cell));
+            fullBoard.flat().forEach(num => { if(num !== 0) counts[num]++; });
+            
+            for(let i = 1; i <= 9; i++) {
+                const cell = ui.numberPanel.querySelector(`[data-number="${i}"]`);
+                if(cell) cell.classList.toggle('used-up', counts[i] === 9);
+            }
+        }
 
         function updateGridDisplay() {
             const newConflictCoords = updateConflicts();
@@ -541,6 +562,7 @@
                     ui.grid.appendChild(cell);
                 }
             }
+            updateNumberPanel();
         }
 
         async function startNewGame(puzzlePromise) {
@@ -627,16 +649,21 @@
             updateGridDisplay();
         }
 
-        function showPanel(panel) {
-            ui.mainControls.style.display = 'grid';
+        function showPanel(event, panel) {
+            event.preventDefault();
+            ui.mainControls.style.display = 'none';
             ui.createPuzzlePanel.style.display = 'none';
             ui.generateBookPanel.style.display = 'none';
             
             if (panel) {
-                ui.mainControls.style.display = 'none';
                 panel.style.display = 'block';
             }
-            updateGridDisplay();
+        }
+        
+        function hidePanel() {
+             ui.mainControls.style.display = 'grid';
+             ui.createPuzzlePanel.style.display = 'none';
+             ui.generateBookPanel.style.display = 'none';
         }
 
         // --- PDF Generation ---
@@ -672,7 +699,7 @@
             const pageW = doc.internal.pageSize.getWidth(), pageH = doc.internal.pageSize.getHeight(), margin = 20, cornerRadius = 3, padding = 4;
             const layouts = {
                 1: [{ x: (pageW - 160) / 2, y: 50, size: 160 }],
-                2: [{ x: (pageW - 110) / 2, y: 40, size: 110 }, { x: (pageW - 110) / 2, y: 165, size: 110 }],
+                2: [{ x: (pageW - 110) / 2, y: 30, size: 110 }, { x: (pageW - 110) / 2, y: 155, size: 110 }],
                 4: [{ x: margin, y: 30, size: 80 }, { x: pageW - 80 - margin, y: 30, size: 80 }, { x: margin, y: 140, size: 80 }, { x: pageW - 80 - margin, y: 140, size: 80 }]
             };
             const layout = layouts[puzzlesPerPage] || layouts[1];
@@ -687,12 +714,23 @@
                 doc.setFont('helvetica', 'normal').setFontSize(10).text(`Difficulty: ${puzzleData.difficulty}`, x + size / 2, y - 2, { align: 'center' });
                 doc.setDrawColor(0).setLineWidth(0.5).roundedRect(x, y, size, size, cornerRadius, cornerRadius, 'S');
                 drawSingleSudokuGrid(doc, puzzleData, gridX, gridY, gridSize, false);
+                
+                // Draw number panel on PDF
+                const panelY = y + size + 5;
+                const panelCellSize = (size / 9) * 0.8;
+                const panelStartX = x + (size - (panelCellSize * 9 + 4 * 5)) / 2;
+                doc.setFont('helvetica', 'normal').setFontSize(panelCellSize * 0.7);
+                for (let n = 1; n <= 9; n++) {
+                    const cellX = panelStartX + (n-1) * (panelCellSize + 5) + ((n > 3 && n < 7) ? 2 : (n >= 7 ? 4 : 0));
+                    doc.setDrawColor(150).setLineWidth(0.2).rect(cellX, panelY, panelCellSize, panelCellSize, 'S');
+                    doc.text(String(n), cellX + panelCellSize/2, panelY + panelCellSize/2, { align: 'center', baseline: 'middle' });
+                }
             }
 
             if (includePageNumbers) doc.setFont('helvetica', 'normal').setFontSize(8).text(String(Math.floor(startIndex / puzzlesPerPage) + 1), pageW / 2, pageH - 10, { align: 'center' });
         }
         
-         async function createAndDownloadBook() {
+        async function createAndDownloadBook() {
             const bookOptions = {
                 title: document.getElementById('book-title-input').value.trim(),
                 subtitle: document.getElementById('book-subtitle-input').value.trim(),
@@ -702,15 +740,10 @@
                 includePageNumbers: document.getElementById('page-numbers-checkbox').checked
             };
 
-            if (isNaN(bookOptions.puzzleCount) || bookOptions.puzzleCount < 1 || bookOptions.puzzleCount > 100) {
-                alert("Please enter a number of puzzles between 1 and 100.");
-                return;
-            }
-
+            if (isNaN(bookOptions.puzzleCount) || bookOptions.puzzleCount < 1 || bookOptions.puzzleCount > 100) { alert("Please enter a number between 1 and 100."); return; }
             isGeneratingBook = true;
             setUiLoading(true, "Preparing Book...");
             ui.cancelBookBtn.style.display = 'block';
-            
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
             doc.deletePage(1);
@@ -720,26 +753,20 @@
                 for (let i = 1; i <= bookOptions.puzzleCount; i++) {
                     if (!isGeneratingBook) throw new Error("Cancelled");
                     setUiLoading(true, `Generating Puzzle ${i} of ${bookOptions.puzzleCount}...`);
-                    await new Promise(r => setTimeout(r, 10)); // Allow UI to update
+                    await new Promise(r => setTimeout(r, 10));
                     const diff = ui.difficultySelect.value;
                     const { puzzle, solution } = generateSudoku({difficulty: diff});
-                    allPuzzlesData.push({
-                        puzzle,
-                        solution,
-                        difficulty: diff.charAt(0).toUpperCase() + diff.slice(1)
-                    });
+                    allPuzzlesData.push({ puzzle, solution, difficulty: diff.charAt(0).toUpperCase() + diff.slice(1) });
                 }
 
-                if (!isGeneratingBook) throw new Error("Cancelled");
                 setUiLoading(true, `Building PDF...`);
                 await new Promise(r => setTimeout(r, 10));
 
                 if (bookOptions.title) {
                     doc.addPage();
-                    const pageW = doc.internal.pageSize.getWidth();
-                    const pageH = doc.internal.pageSize.getHeight();
-                    doc.setFont('helvetica', 'bold').setFontSize(30).text(bookOptions.title, pageW / 2, pageH / 2 - 10, { align: 'center' });
-                    if (bookOptions.subtitle) doc.setFont('helvetica', 'normal').setFontSize(16).text(bookOptions.subtitle, pageW / 2, pageH / 2 + 5, { align: 'center' });
+                    const pageW = doc.internal.pageSize.getWidth(), pageH = doc.internal.pageSize.getHeight();
+                    doc.setFont('helvetica', 'bold').setFontSize(30).text(bookOptions.title, pageW/2, pageH/2 - 10, {align: 'center'});
+                    if (bookOptions.subtitle) doc.setFont('helvetica', 'normal').setFontSize(16).text(bookOptions.subtitle, pageW/2, pageH/2 + 5, {align: 'center'});
                 }
 
                 for (let i = 0; i < allPuzzlesData.length; i += bookOptions.puzzlesPerPage) {
@@ -748,28 +775,18 @@
                     drawPuzzlesOnPage(doc, allPuzzlesData, i, bookOptions);
                 }
                 
-                if (bookOptions.includeSolutions) {
-                    if (!isGeneratingBook) throw new Error("Cancelled");
-                    setUiLoading(true, `Generating Answer Key...`);
-                    await new Promise(r => setTimeout(r, 10));
-                    // drawAnswerKey(doc, allPuzzlesData); // This function seems to be missing, you'll need to add it back if needed
-                }
-
+                // If you need answer key, you must implement drawAnswerKey function
+                
                 const safeTitle = (bookOptions.title.replace(/[^a-zA-Z0-9]/g, '-') || `Sudoku-Book`).substring(0, 50);
                 doc.save(`${safeTitle}.pdf`);
                 ui.status.textContent = "Book successfully generated!";
 
             } catch (error) {
-                if (error.message === "Cancelled") {
-                    ui.status.textContent = "Book generation cancelled.";
-                } else {
-                    ui.status.textContent = `Error: ${error.message}`;
-                    alert(error.message);
-                }
+                ui.status.textContent = `Error: ${error.message === "Cancelled" ? "Book generation cancelled." : error.message}`;
             } finally {
                 isGeneratingBook = false;
                 setUiLoading(false);
-                showPanel(null);
+                hidePanel();
             }
         }
 
@@ -823,8 +840,8 @@
         ui.downloadPdfBtn.addEventListener('click', downloadPdf);
         ui.difficultySelect.addEventListener('change', defaultGame);
         
-        ui.createPuzzleBtn.addEventListener('click', () => showPanel(ui.createPuzzlePanel));
-        ui.cancelCreatePuzzleBtn.addEventListener('click', () => showPanel(null));
+        ui.createPuzzleBtn.addEventListener('click', (e) => showPanel(e, ui.createPuzzlePanel));
+        ui.cancelCreatePuzzleBtn.addEventListener('click', hidePanel);
 
         ui.startCreatedPuzzleBtn.addEventListener('click', () => {
              startNewGame(new Promise((resolve, reject) => {
@@ -837,13 +854,13 @@
                     return reject(new Error("Completed zones cannot be greater than 9."));
                 }
                 
-                showPanel(null);
+                hidePanel();
                 resolve({ ...generateSudoku(options), source: `Custom Puzzle` });
             }));
         });
         
-        ui.makeBookBtn.addEventListener('click', () => showPanel(ui.generateBookPanel));
-        ui.cancelBookOptionsBtn.addEventListener('click', () => showPanel(null));
+        ui.makeBookBtn.addEventListener('click', (e) => showPanel(e, ui.generateBookPanel));
+        ui.cancelBookOptionsBtn.addEventListener('click', hidePanel);
         ui.createBookBtn.addEventListener('click', createAndDownloadBook);
 
         ui.fullscreenBtn.addEventListener('click', toggleFullScreen);
@@ -851,6 +868,22 @@
              ui.completionModal.classList.remove('visible');
              defaultGame();
         });
+        
+        for (let i = 1; i <= 9; i++) {
+            const cell = document.createElement('div');
+            cell.className = 'number-cell';
+            cell.textContent = i;
+            cell.dataset.number = i;
+            cell.addEventListener('click', () => {
+                if (selectedCell.row !== -1 && puzzleBoard[selectedCell.row][selectedCell.col] === 0 && !hintedCells.has(`${selectedCell.row},${selectedCell.col}`)) {
+                    userBoard[selectedCell.row][selectedCell.col] = i;
+                    updateGridDisplay();
+                    if(isBoardFull() && checkFinalSolution()) handlePuzzleCompletion();
+                }
+            });
+            ui.numberPanel.appendChild(cell);
+        }
+        
         document.addEventListener('fullscreenchange', updateGridDisplay);
         window.addEventListener('resize', () => { if (!document.fullscreenElement) updateGridDisplay(); });
 
