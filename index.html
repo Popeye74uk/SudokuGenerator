@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sudoku Generator v2.1</title>
+    <title>Sudoku Generator v2.2</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
         :root {
@@ -142,18 +142,18 @@
         
         .panel { max-width: 415px; margin: 25px auto 0; padding: 20px; border-radius: 8px; box-shadow: 0 4px 12px var(--color-box-shadow); display: none; }
         .panel h3 { margin-top: 0; }
-        .panel h4 { margin-top: 20px; margin-bottom: 10px; border-bottom: 1px solid var(--color-grid-lines); padding-bottom: 5px; }
-        .panel p { font-size: 0.9em; color: var(--color-text-secondary); margin-bottom: 15px; }
+        .panel h4 { margin-top: 20px; margin-bottom: 10px; border-bottom: 1px solid var(--color-grid-lines); padding-bottom: 5px; text-align: left;}
+        .panel p { font-size: 0.9em; color: var(--color-text-secondary); margin-bottom: 15px; text-align: left; }
         #start-created-puzzle-btn { background-color: var(--color-success); }
         #cancel-create-puzzle-btn { background-color: var(--color-text-secondary); }
 
-        .create-options-grid, .book-options-grid { display: grid; grid-template-columns: auto 1fr; gap: 10px 15px; align-items: center; }
-        .create-options-grid label, .book-options-grid label { text-align: right; }
+        .create-options-grid { display: grid; grid-template-columns: auto 1fr; gap: 10px 15px; align-items: center; margin-bottom: 15px; }
+        .create-options-grid label { text-align: right; }
         .checkbox-group label { text-align: left; }
+        .create-options-grid input[type="number"] { width: 70px; }
 
-        .zone-checkbox-container { display: grid; grid-template-columns: repeat(9, 1fr); gap: 5px; }
-        .zone-checkbox-container label { display: flex; justify-content: center; align-items: center; }
-
+        .book-options-grid { display: grid; grid-template-columns: auto 1fr; gap: 10px 15px; align-items: center; }
+        .book-options-grid label { text-align: right; }
         #book-checkbox-options { display: flex; gap: 20px; align-items: center; justify-content: flex-start; }
 
         #status-container { text-align: center; margin-top: 15px; font-style: italic; min-height: 20px; color: var(--color-text-secondary); }
@@ -201,36 +201,6 @@
             </div>
         </header>
 
-        <div id="create-puzzle-panel" class="panel">
-            <h3>Create a Custom Puzzle</h3>
-            
-            <h4>1. Basic Options</h4>
-            <div class="create-options-grid">
-                <label for="clue-count-input">Target Clues (1-80):</label>
-                <input type="number" id="clue-count-input" value="30" min="1" max="80" style="width: 70px;">
-                <label class="checkbox-group" for="symmetry-checkbox">Symmetrical Clues:</label>
-                <input type="checkbox" id="symmetry-checkbox">
-            </div>
-             <p>Note: A true Sudoku requires at least 17 clues for a unique solution. Below this, the generator may provide more clues than requested to ensure validity.</p>
-
-            <h4>2. Advanced Options (Optional)</h4>
-             <p>Click on the grid below to mark cells that <strong>must</strong> contain a clue ("No-Touch Zones").</p>
-             
-            <h4>Completed Zones</h4>
-            <p>Force entire rows, columns, or boxes to be filled.</p>
-            <b>Rows:</b>
-            <div id="completed-rows-container" class="zone-checkbox-container"></div>
-            <b>Columns:</b>
-            <div id="completed-cols-container" class="zone-checkbox-container"></div>
-            <b>Boxes:</b>
-            <div id="completed-boxes-container" class="zone-checkbox-container"></div>
-
-            <div class="controls-grid">
-                <button id="start-created-puzzle-btn">Create & Start</button>
-                <button id="cancel-create-puzzle-btn">Cancel</button>
-            </div>
-        </div>
-        
         <div id="puzzle-container">
             <div id="grid-wrapper">
                 <div id="grid"></div>
@@ -250,6 +220,37 @@
                         <button>Play Again?</button>
                     </div>
                 </div>
+            </div>
+        </div>
+
+        <div id="create-puzzle-panel" class="panel">
+            <h3>Create a Custom Puzzle</h3>
+            
+            <h4>Basic Options</h4>
+            <div class="create-options-grid">
+                <label for="clue-count-input">Clues (17-80):</label>
+                <input type="number" id="clue-count-input" value="30" min="17" max="80">
+                <label class="checkbox-group" for="symmetry-checkbox">Symmetrical Clues:</label>
+                <input type="checkbox" id="symmetry-checkbox">
+            </div>
+
+            <h4>Advanced Options</h4>
+             <p>Click cells on the grid to mark them as "No-Touch Zones" (they must contain a clue).</p>
+             
+            <h4>Completed Zones (Random)</h4>
+            <p>Force a number of entire rows, columns, or boxes to be filled.</p>
+            <div class="create-options-grid">
+                <label for="completed-rows-input">Completed Rows:</label>
+                <input type="number" id="completed-rows-input" value="0" min="0" max="9">
+                <label for="completed-cols-input">Completed Columns:</label>
+                <input type="number" id="completed-cols-input" value="0" min="0" max="9">
+                <label for="completed-boxes-input">Completed Boxes:</label>
+                <input type="number" id="completed-boxes-input" value="0" min="0" max="9">
+            </div>
+
+            <div class="controls-grid">
+                <button id="start-created-puzzle-btn">Create & Start</button>
+                <button id="cancel-create-puzzle-btn">Cancel</button>
             </div>
         </div>
         
@@ -306,7 +307,7 @@
         </div>
 
         <div id="status-container"><p id="source-status"></p></div>
-        <div id="version-info">v2.1</div>
+        <div id="version-info">v2.2</div>
     </div>
     
     <script>
@@ -335,9 +336,9 @@
             cancelCreatePuzzleBtn: document.getElementById('cancel-create-puzzle-btn'),
             clueCountInput: document.getElementById('clue-count-input'),
             symmetryCheckbox: document.getElementById('symmetry-checkbox'),
-            completedRowsContainer: document.getElementById('completed-rows-container'),
-            completedColsContainer: document.getElementById('completed-cols-container'),
-            completedBoxesContainer: document.getElementById('completed-boxes-container'),
+            completedRowsInput: document.getElementById('completed-rows-input'),
+            completedColsInput: document.getElementById('completed-cols-input'),
+            completedBoxesInput: document.getElementById('completed-boxes-input'),
             generateBookPanel: document.getElementById('generate-book-panel'),
             createBookBtn: document.getElementById('create-book-btn'),
             cancelBookBtn: document.getElementById('cancel-book-btn'),
@@ -431,77 +432,63 @@
         }
 
         function generateSudoku(options) {
-            let board, currentSolution;
+            const board = Array(9).fill(0).map(() => Array(9).fill(0));
+            solve(board);
+            const currentSolution = JSON.parse(JSON.stringify(board));
+
+            let clueCount = options.clueCount || getCluesForDifficulty(options.difficulty);
+
+            const mandatoryClues = new Set(options.noTouch || []);
+            const completedRows = shuffle([...Array(9).keys()]).slice(0, options.completedRowCount);
+            const completedCols = shuffle([...Array(9).keys()]).slice(0, options.completedColCount);
+            const completedBoxes = shuffle([...Array(9).keys()]).slice(0, options.completedBoxCount);
+
+            completedRows.forEach(r => { for(let c=0; c<9; c++) mandatoryClues.add(`${r},${c}`); });
+            completedCols.forEach(c => { for(let r=0; r<9; r++) mandatoryClues.add(`${r},${c}`); });
+            completedBoxes.forEach(b => {
+                const startRow = Math.floor(b / 3) * 3;
+                const startCol = (b % 3) * 3;
+                for(let r=0; r<3; r++) for(let c=0; c<3; c++) mandatoryClues.add(`${startRow+r},${startCol+c}`);
+            });
+
+            clueCount = Math.max(clueCount, mandatoryClues.size);
+            const cellsToRemove = 81 - clueCount;
             
-            const maxAttempts = 10;
-            let attempt = 0;
-            let success = false;
+            let cells = [];
+            for (let r = 0; r < 9; r++) for (let c = 0; c < 9; c++) cells.push([r, c]);
+            shuffle(cells);
+            
+            let removedCount = 0;
+            let finalPuzzle = JSON.parse(JSON.stringify(currentSolution));
 
-            while (attempt < maxAttempts && !success) {
-                board = Array(9).fill(0).map(() => Array(9).fill(0));
-                solve(board);
-                currentSolution = JSON.parse(JSON.stringify(board));
+            for (const [r, c] of cells) {
+                if (mandatoryClues.has(`${r},${c}`)) continue;
 
-                let clueCount = options.clueCount || getCluesForDifficulty(options.difficulty);
-
-                // Adjust for pre-selected zones
-                const mandatoryClues = new Set(noTouchCells);
-                options.completedRows.forEach(r => { for(let c=0; c<9; c++) mandatoryClues.add(`${r},${c}`); });
-                options.completedCols.forEach(c => { for(let r=0; r<9; r++) mandatoryClues.add(`${r},${c}`); });
-                options.completedBoxes.forEach(b => {
-                    const startRow = Math.floor(b / 3) * 3;
-                    const startCol = (b % 3) * 3;
-                    for(let r=0; r<3; r++) for(let c=0; c<3; c++) mandatoryClues.add(`${startRow+r},${startCol+c}`);
-                });
-
-                clueCount = Math.max(clueCount, mandatoryClues.size);
-                const cellsToRemove = 81 - clueCount;
+                const backup = finalPuzzle[r][c];
+                finalPuzzle[r][c] = 0;
                 
-                let cells = [];
-                for (let r = 0; r < 9; r++) for (let c = 0; c < 9; c++) cells.push([r, c]);
-                shuffle(cells);
-
-                let removedCount = 0;
-                for (const [r, c] of cells) {
-                    if (removedCount >= cellsToRemove) break;
-                    if (mandatoryClues.has(`${r},${c}`)) continue;
-
-                    const symmetricPair = options.symmetry ? [ [8 - r, 8 - c] ] : [];
-                    if (r === 4 && c === 4 && options.symmetry) symmetricPair.pop(); // Center cell has no pair
-                    
-                    const backup = board[r][c];
-                    board[r][c] = 0;
-                    
-                    let pairBackup;
-                    if (symmetricPair.length > 0) {
-                        const [pr, pc] = symmetricPair[0];
-                        if (mandatoryClues.has(`${pr},${pc}`)) { // Cannot remove pair, so restore original
-                            board[r][c] = backup;
-                            continue;
-                        }
-                        pairBackup = board[pr][pc];
-                        board[pr][pc] = 0;
+                let pairBackup;
+                if (options.symmetry) {
+                    const pr = 8 - r, pc = 8 - c;
+                     if (mandatoryClues.has(`${pr},${pc}`) || (pr === r && pc === c)) {
+                        finalPuzzle[r][c] = backup; // cannot remove, restore and skip
+                        continue;
                     }
-
-                    const tempBoard = JSON.parse(JSON.stringify(board));
-                    solutionCounter = 0;
-                    countSolutions(tempBoard);
-
-                    if (solutionCounter !== 1) {
-                        board[r][c] = backup;
-                        if (symmetricPair.length > 0) board[symmetricPair[0][0]][symmetricPair[0][1]] = pairBackup;
-                    } else {
-                        removedCount += (symmetricPair.length > 0) ? 2 : 1;
-                    }
+                    pairBackup = finalPuzzle[pr][pc];
+                    finalPuzzle[pr][pc] = 0;
                 }
-                
-                if (81 - removedCount >= clueCount) {
-                    success = true;
+
+                const tempBoard = JSON.parse(JSON.stringify(finalPuzzle));
+                solutionCounter = 0;
+                countSolutions(tempBoard);
+
+                if (solutionCounter !== 1) {
+                    finalPuzzle[r][c] = backup;
+                    if (options.symmetry) finalPuzzle[8-r][8-c] = pairBackup;
                 }
-                attempt++;
             }
 
-            return { puzzle: board, solution: currentSolution };
+            return { puzzle: finalPuzzle, solution: currentSolution };
         }
 
 
@@ -515,8 +502,7 @@
             for(let r = 0; r < 9; r++) {
                 for(let c = 0; c < 9; c++) {
                     const num = fullBoard[r][c];
-                    if (num === 0) continue;
-                    if (puzzleBoard[r][c] !== 0 || hintedCells.has(`${r},${c}`)) continue;
+                    if (num === 0 || puzzleBoard[r][c] !== 0 || hintedCells.has(`${r},${c}`)) continue;
 
                     // Check row, col, box for conflicts
                     for(let i = 0; i < 9; i++) {
@@ -557,7 +543,7 @@
         }
 
         function updateGridDisplay() {
-            if (isCreateMode) return;
+            if (isCreateMode) return renderCreateGrid();
             const newConflictCoords = updateConflicts();
             ui.grid.innerHTML = '';
             
@@ -748,24 +734,22 @@
 
         function showPanel(panel) {
             ui.mainControls.style.display = 'grid';
-            ui.puzzleContainer.style.display = 'flex';
             ui.createPuzzlePanel.style.display = 'none';
             ui.generateBookPanel.style.display = 'none';
             isCreateMode = false;
             ui.container.classList.remove('create-mode');
-
-
+            
             if (panel) {
                 if(panel === ui.createPuzzlePanel) {
                     isCreateMode = true;
                     ui.container.classList.add('create-mode');
                     noTouchCells.clear();
                     renderCreateGrid();
-                } else {
-                    ui.puzzleContainer.style.display = 'none';
                 }
                 ui.mainControls.style.display = 'none';
                 panel.style.display = 'block';
+            } else {
+                updateGridDisplay(); // Redraw game grid when closing a panel
             }
         }
 
@@ -976,35 +960,6 @@
             }
         }
 
-        function initCreatePanel() {
-            ['rows', 'cols', 'boxes'].forEach(type => {
-                const container = ui[`completed${type.charAt(0).toUpperCase() + type.slice(1)}Container`];
-                container.innerHTML = '';
-                for(let i=0; i<9; i++) {
-                    const label = document.createElement('label');
-                    const cb = document.createElement('input');
-                    cb.type = 'checkbox';
-                    cb.dataset.index = i;
-                    cb.dataset.type = type;
-                    label.appendChild(cb);
-                    label.append(String(i+1));
-                    container.appendChild(label);
-                }
-            });
-            document.getElementById('create-puzzle-panel').addEventListener('change', (e) => {
-                if (e.target.dataset.type && ui.symmetryCheckbox.checked) {
-                    const index = parseInt(e.target.dataset.index, 10);
-                    const counterpartIndex = 8 - index;
-                    const counterpartCb = document.querySelector(`input[data-type="${e.target.dataset.type}"][data-index="${counterpartIndex}"]`);
-                    if (counterpartCb) counterpartCb.checked = e.target.checked;
-                }
-            });
-            ui.symmetryCheckbox.addEventListener('change', () => {
-                noTouchCells.clear();
-                renderCreateGrid();
-            });
-        }
-
         // --- EVENT LISTENERS ---
 
         ui.grid.addEventListener('click', (e) => {
@@ -1023,7 +978,7 @@
                 e.preventDefault();
                 startNewGame(new Promise(res => {
                     const diff = ui.difficultySelect.value;
-                    const data = generateSudoku({difficulty: diff, completedRows: [], completedCols: [], completedBoxes: [], symmetry: false, noTouch: new Set()});
+                    const data = generateSudoku({difficulty: diff});
                     res({ ...data, source: `Difficulty: ${diff.charAt(0).toUpperCase() + diff.slice(1)}` });
                 }));
                 return;
@@ -1067,27 +1022,32 @@
         setTheme(savedTheme || (prefersDark ? 'dark' : 'light'));
         
         // --- INITIALIZATION ---
-        ui.generateBtn.addEventListener('click', () => startNewGame(new Promise(res => { const diff = ui.difficultySelect.value; const data = generateSudoku({difficulty: diff, completedRows: [], completedCols: [], completedBoxes: [], symmetry: false, noTouch: new Set()}); res({ ...data, source: `Difficulty: ${diff.charAt(0).toUpperCase() + diff.slice(1)}` }) })));
+        ui.generateBtn.addEventListener('click', () => startNewGame(new Promise(res => { const diff = ui.difficultySelect.value; const data = generateSudoku({difficulty: diff}); res({ ...data, source: `Difficulty: ${diff.charAt(0).toUpperCase() + diff.slice(1)}` }) })));
         ui.revealBtn.addEventListener('click', revealSolution);
         ui.hintBtn.addEventListener('click', giveHint);
         ui.downloadPdfBtn.addEventListener('click', downloadPdf);
-        ui.difficultySelect.addEventListener('change', () => startNewGame(new Promise(res => { const diff = ui.difficultySelect.value; const data = generateSudoku({difficulty: diff, completedRows: [], completedCols: [], completedBoxes: [], symmetry: false, noTouch: new Set()}); res({ ...data, source: `Difficulty: ${diff.charAt(0).toUpperCase() + diff.slice(1)}` }) })));
+        ui.difficultySelect.addEventListener('change', () => startNewGame(new Promise(res => { const diff = ui.difficultySelect.value; const data = generateSudoku({difficulty: diff}); res({ ...data, source: `Difficulty: ${diff.charAt(0).toUpperCase() + diff.slice(1)}` }) })));
         
         ui.createPuzzleBtn.addEventListener('click', () => showPanel(ui.createPuzzlePanel));
         ui.cancelCreatePuzzleBtn.addEventListener('click', () => showPanel(null));
         ui.startCreatedPuzzleBtn.addEventListener('click', () => {
              startNewGame(new Promise((resolve, reject) => {
                 const clueCount = parseInt(ui.clueCountInput.value, 10);
-                if (isNaN(clueCount) || clueCount < 1 || clueCount > 80) {
-                    return reject(new Error("Invalid number of clues. Please enter a number between 1 and 80."));
+                const completedRowCount = parseInt(ui.completedRowsInput.value, 10);
+                const completedColCount = parseInt(ui.completedColsInput.value, 10);
+                const completedBoxCount = parseInt(ui.completedBoxesInput.value, 10);
+
+                if (isNaN(clueCount) || clueCount < 17 || clueCount > 80) {
+                    return reject(new Error("Invalid number of clues. Please enter a number between 17 and 80."));
                 }
+                
                 const options = {
                     clueCount: clueCount,
                     symmetry: ui.symmetryCheckbox.checked,
                     noTouch: noTouchCells,
-                    completedRows: Array.from(document.querySelectorAll('#completed-rows-container input:checked')).map(cb => parseInt(cb.dataset.index, 10)),
-                    completedCols: Array.from(document.querySelectorAll('#completed-cols-container input:checked')).map(cb => parseInt(cb.dataset.index, 10)),
-                    completedBoxes: Array.from(document.querySelectorAll('#completed-boxes-container input:checked')).map(cb => parseInt(cb.dataset.index, 10)),
+                    completedRowCount: completedRowCount,
+                    completedColCount: completedColCount,
+                    completedBoxCount: completedBoxCount
                 };
                 
                 const data = generateSudoku(options);
@@ -1104,13 +1064,12 @@
         ui.fullscreenBtn.addEventListener('click', toggleFullScreen);
         document.querySelector('#completion-modal button').addEventListener('click', () => {
              ui.completionModal.classList.remove('visible');
-             startNewGame(new Promise(res => { const diff = ui.difficultySelect.value; const data = generateSudoku({difficulty: diff, completedRows: [], completedCols: [], completedBoxes: [], symmetry: false, noTouch: new Set()}); res({ ...data, source: `Difficulty: ${diff.charAt(0).toUpperCase() + diff.slice(1)}` }) }));
+             startNewGame(new Promise(res => { const diff = ui.difficultySelect.value; const data = generateSudoku({difficulty: diff}); res({ ...data, source: `Difficulty: ${diff.charAt(0).toUpperCase() + diff.slice(1)}` }) }));
         });
         document.addEventListener('fullscreenchange', updateGridDisplay);
         window.addEventListener('resize', () => { if (!document.fullscreenElement) { updateGridDisplay(); } });
 
-        initCreatePanel();
-        startNewGame(new Promise(res => { const diff = ui.difficultySelect.value; const data = generateSudoku({difficulty: diff, completedRows: [], completedCols: [], completedBoxes: [], symmetry: false, noTouch: new Set()}); res({ ...data, source: `Difficulty: ${diff.charAt(0).toUpperCase() + diff.slice(1)}` }) }));
+        startNewGame(new Promise(res => { const diff = ui.difficultySelect.value; const data = generateSudoku({difficulty: diff}); res({ ...data, source: `Difficulty: ${diff.charAt(0).toUpperCase() + diff.slice(1)}` }) }));
     </script>
 </body>
 </html>
