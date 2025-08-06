@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sudoku Generator v0.8</title>
+    <title>Sudoku Generator v0.9</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
         :root {
@@ -13,7 +13,6 @@
             --color-text-secondary: #6c757d;
             --color-heading: #343a40;
             --color-grid-lines: #adb5bd;
-            /* --- Border Color Fix (Light Mode) --- */
             --color-grid-box-lines: #212529; 
             --color-grid-cell-bg: #fff;
             --color-grid-given-text: #000;
@@ -35,6 +34,7 @@
             --color-pink: #d63384;
             --color-correct-bg: rgba(40, 167, 69, 0.3);
             --color-incorrect-bg: rgba(220, 53, 69, 0.4);
+            --color-conflict-text: #dc3545;
         }
 
         body.dark-mode {
@@ -44,7 +44,6 @@
             --color-text-secondary: #888;
             --color-heading: #f1f1f1;
             --color-grid-lines: #444;
-            /* --- Border Color Fix (Dark Mode) --- */
             --color-grid-box-lines: #e0e0e0;
             --color-grid-cell-bg: #2a2a2a;
             --color-grid-given-text: #fff;
@@ -60,6 +59,7 @@
             --color-box-shadow-hover: rgba(0,0,0,0.4);
             --color-correct-bg: rgba(40, 167, 69, 0.4);
             --color-incorrect-bg: rgba(220, 53, 69, 0.5);
+            --color-conflict-text: #ff7b7b;
         }
 
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; font-size: 16px; color: var(--color-text-primary); background-color: var(--color-background); padding: 20px; margin: 0; display: flex; justify-content: center; align-items: flex-start; min-height: 100vh; transition: background-color 0.3s, color 0.3s; }
@@ -93,7 +93,7 @@
             align-items: center;
             cursor: pointer;
             user-select: none;
-            transition: background-color 0.2s;
+            transition: background-color 0.2s, color 0.2s;
             border-top: 1px solid var(--color-grid-lines);
             border-left: 1px solid var(--color-grid-lines);
         }
@@ -113,6 +113,11 @@
         .grid-cell.highlighted { background-color: var(--color-grid-highlighted-bg); }
         .grid-cell.correct { background-color: var(--color-correct-bg); }
         .grid-cell.incorrect { background-color: var(--color-incorrect-bg); }
+
+        /* --- New Hint & Conflict Styles --- */
+        .grid-cell.hint-cell { color: var(--color-info); }
+        .grid-cell.conflict-cell { color: var(--color-conflict-text); }
+
 
         .loader { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background-color: var(--color-container-bg); display: flex; justify-content: center; align-items: center; flex-direction: column; gap: 15px; z-index: 10; font-size: 1.1em; color: var(--color-text-secondary); border-radius: 4px; }
         .loader.hidden { opacity: 0; pointer-events: none; }
@@ -200,9 +205,9 @@
         </div>
 
         <div class="controls-grid" id="main-controls">
-            <button id="generate-btn">New Puzzle</button>
+            <button id="generate-btn">New Puzzle (N)</button>
             <button id="custom-puzzle-btn" disabled>Custom Puzzle</button>
-            <button id="hint-btn">Hint</button>
+            <button id="hint-btn">Hint (H)</button>
             <button id="reveal-btn">Reveal Solution</button>
             <button id="download-pdf-btn" disabled>Download as PDF</button>
             <button id="make-book-btn" disabled>Make Book</button>
@@ -210,7 +215,7 @@
         </div>
 
         <div id="status-container"><p id="source-status"></p></div>
-        <div id="version-info">v0.8</div>
+        <div id="version-info">v0.9</div>
     </div>
 
     <div id="completion-modal" onclick="this.classList.remove('visible')">
@@ -247,6 +252,9 @@
         let puzzleBoard = [], solutionBoard = [], userBoard = [];
         let selectedCell = { row: -1, col: -1 };
         let startTime, puzzleConfigKey;
+        
+        let hintedCells = new Set();
+        let conflictCells = new Set();
 
         // --- SUDOKU CORE LOGIC ---
 
@@ -358,12 +366,43 @@
 
         // --- UI & DISPLAY LOGIC ---
 
+        function updateConflicts() {
+            conflictCells.clear();
+            const fullBoard = puzzleBoard.map((row, r) => row.map((cell, c) => cell === 0 ? userBoard[r][c] : cell));
+
+            for(let r = 0; r < 9; r++) {
+                for(let c = 0; c < 9; c++) {
+                    const num = fullBoard[r][c];
+                    if (num === 0) continue;
+
+                    // Check row, col, and box for duplicates
+                    for(let i = 0; i < 9; i++) {
+                        if (i !== c && fullBoard[r][i] === num) conflictCells.add(`${r},${c}`);
+                        if (i !== r && fullBoard[i][c] === num) conflictCells.add(`${r},${c}`);
+                    }
+                    const boxRow = Math.floor(r / 3) * 3;
+                    const boxCol = Math.floor(c / 3) * 3;
+                    for(let i = 0; i < 3; i++) {
+                        for(let j = 0; j < 3; j++) {
+                            const curR = boxRow + i;
+                            const curC = boxCol + j;
+                            if ((curR !== r || curC !== c) && fullBoard[curR][curC] === num) {
+                                conflictCells.add(`${r},${c}`);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+
         function setUiLoading(isLoading) {
             document.querySelectorAll('button, select').forEach(el => el.disabled = isLoading);
             ui.loader.classList.toggle('hidden', !isLoading);
         }
 
         function updateGridDisplay() {
+            updateConflicts();
             ui.grid.innerHTML = '';
             
             const containerSize = Math.min(ui.puzzleContainer.clientWidth, 600);
@@ -383,11 +422,15 @@
                     cell.style.height = `${cellSize}px`;
                     cell.style.fontSize = `${cellSize * 0.5}px`;
                     
+                    const coordKey = `${r},${c}`;
                     const isGiven = puzzleBoard[r][c] !== 0;
+                    const isHinted = hintedCells.has(coordKey);
                     const currentValue = isGiven ? puzzleBoard[r][c] : userBoard[r][c];
                     
                     cell.textContent = currentValue === 0 ? '' : currentValue;
                     if (isGiven) cell.classList.add('given-cell');
+                    if (isHinted) cell.classList.add('hint-cell');
+                    if (conflictCells.has(coordKey)) cell.classList.add('conflict-cell');
                     
                     // Highlighting Logic
                     if (selectedCell.row !== -1) {
@@ -410,6 +453,7 @@
         async function generateNewPuzzle() {
             setUiLoading(true);
             ui.status.textContent = '';
+            hintedCells.clear();
             const difficulty = ui.difficultySelect.value;
             ui.loaderText.textContent = `Generating ${difficulty} puzzle...`;
             
@@ -458,7 +502,7 @@
                 }
             }
 
-            if(isComplete && allCorrect) {
+            if(isComplete && allCorrect && conflictCells.size === 0) {
                 handlePuzzleCompletion();
             } else {
                 setTimeout(() => {
@@ -481,7 +525,8 @@
             const emptyCells = [];
             for (let r = 0; r < 9; r++) {
                 for (let c = 0; c < 9; c++) {
-                    if (puzzleBoard[r][c] === 0 && userBoard[r][c] === 0) {
+                    const coordKey = `${r},${c}`;
+                    if (puzzleBoard[r][c] === 0 && userBoard[r][c] === 0 && !hintedCells.has(coordKey)) {
                         emptyCells.push({ r, c });
                     }
                 }
@@ -490,6 +535,7 @@
                 const randomCell = emptyCells[Math.floor(Math.random() * emptyCells.length)];
                 const { r, c } = randomCell;
                 userBoard[r][c] = solutionBoard[r][c];
+                hintedCells.add(`${r},${c}`); // Track hinted cell
                 handleCellClick(r,c);
             } else {
                 ui.status.textContent = "No empty cells to provide a hint for!";
@@ -533,19 +579,31 @@
         });
 
         document.addEventListener('keydown', (e) => {
+            const key = e.key.toLowerCase();
             if(ui.completionModal.classList.contains('visible')) return;
 
-            if (e.key.toLowerCase() === 'f') {
+            if (key === 'f') {
                 e.preventDefault();
                 toggleFullScreen();
                 return; 
             }
+            if (key === 'n') {
+                e.preventDefault();
+                generateNewPuzzle();
+                return;
+            }
+            if (key === 'h') {
+                e.preventDefault();
+                giveHint();
+                return;
+            }
+
 
             if(selectedCell.row === -1) return;
             
             const { row, col } = selectedCell;
 
-            if (puzzleBoard[row][col] !== 0) return;
+            if (puzzleBoard[row][col] !== 0 || hintedCells.has(`${row},${col}`)) return;
 
             if (e.key >= '1' && e.key <= '9') {
                 userBoard[row][col] = parseInt(e.key);
