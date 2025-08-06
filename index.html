@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sudoku Generator v2.10</title>
+    <title>Sudoku Generator v2.11</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
         :root {
@@ -160,6 +160,7 @@
 
         .book-options-grid { display: grid; grid-template-columns: auto 1fr; gap: 10px 15px; align-items: center; }
         .book-options-grid label { text-align: right; }
+        #puzzles-per-page-select { width: 70px; }
         #book-checkbox-options { display: flex; gap: 20px; align-items: center; justify-content: flex-start; }
         
         #number-panel { display: flex; justify-content: space-between; gap: 5px; margin: 15px auto 0; transition: width 0.3s ease; }
@@ -311,7 +312,7 @@
         </div>
 
         <div id="status-container"><p id="source-status"></p></div>
-        <div id="version-info">v2.10</div>
+        <div id="version-info">v2.11</div>
     </div>
     
     <script>
@@ -536,9 +537,9 @@
             ui.grid.innerHTML = '';
             
             const isFullscreen = !!document.fullscreenElement;
-            const screenHeight = isFullscreen ? window.innerHeight * 0.9 : window.innerHeight;
+            const screenHeight = isFullscreen ? window.innerHeight : window.innerHeight - 250;
             const availableWidth = isFullscreen ? window.innerWidth * 0.9 : ui.puzzleContainer.clientWidth;
-            const maxGridSize = Math.min(availableWidth, screenHeight - 150, 600);
+            const maxGridSize = Math.min(availableWidth, screenHeight, 500);
             
             const gridTotalSize = maxGridSize;
             ui.grid.style.width = `${gridTotalSize}px`;
@@ -581,7 +582,7 @@
 
             ui.numberPanel.style.width = `${gridTotalSize}px`;
             const numberCells = ui.numberPanel.querySelectorAll('.number-cell');
-            const numCellSize = (gridTotalSize - (8 * 5)) / 9; // 8 gaps of 5px
+            const numCellSize = (gridTotalSize - (8 * 5)) / 9;
             numberCells.forEach(cell => {
                 cell.style.width = `${numCellSize}px`;
                 cell.style.height = `${numCellSize}px`;
@@ -743,8 +744,8 @@
                 const containerX = x - containerPadding;
                 const containerY = y - containerPadding;
 
-                doc.setFont('helvetica', 'bold').setFontSize(12).text(`Puzzle ${puzzleIndex + 1}`, x + size / 2, y - 8, { align: 'center' });
-                doc.setFont('helvetica', 'normal').setFontSize(9).text(`Difficulty: ${puzzleData.difficulty}`, x + size / 2, y - 4, { align: 'center' });
+                doc.setFont('helvetica', 'bold').setFontSize(12).text(`Puzzle ${puzzleIndex + 1}`, containerX + totalContainerWidth / 2, containerY - 6, { align: 'center' });
+                doc.setFont('helvetica', 'normal').setFontSize(9).text(`Difficulty: ${puzzleData.difficulty}`, containerX + totalContainerWidth / 2, containerY - 2, { align: 'center' });
                 doc.setDrawColor(0).setLineWidth(0.6).roundedRect(containerX, containerY, totalContainerWidth, totalContainerHeight, cornerRadius, cornerRadius, 'S');
                 
                 drawSingleSudokuGrid(doc, puzzleData, x, y, size, false);
