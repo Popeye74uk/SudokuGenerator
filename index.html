@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sudoku Generator v2.15</title>
+    <title>Sudoku Generator v2.16</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
         :root {
@@ -67,8 +67,9 @@
         
         .main-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
         .main-header h1 { flex-grow: 1; margin: 0; padding: 0 10px; text-align: center; }
-        .header-buttons { display: flex; gap: 10px; }
-        .header-spacer { min-width: 100px; flex-shrink: 0; }
+        .header-buttons { display: flex; gap: 10px; justify-content: flex-end; }
+        .header-spacer { flex-shrink: 0; }
+        .header-spacer, .header-buttons { flex-basis: 100px; }
         
         #puzzle-container { display: flex; margin-top: 20px; justify-content: center; }
         #grid-wrapper { position: relative; display: flex; flex-direction: column; align-items: center; }
@@ -199,8 +200,7 @@
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         
         @media (max-width: 480px) {
-            .header-spacer { flex-basis: 44px; /* Match button width */ }
-            .header-buttons { margin-right: -10px; /* Shift button left */ }
+            .header-spacer, .header-buttons { flex-basis: 44px; }
             .main-header h1 { font-size: 1.8em; }
             .controls-grid { grid-template-columns: 1fr; }
             .book-options-grid, .create-options-grid { grid-template-columns: 1fr; }
@@ -316,7 +316,7 @@
         </div>
 
         <div id="status-container"><p id="source-status"></p></div>
-        <div id="version-info">v2.15</div>
+        <div id="version-info">v2.16</div>
     </div>
 
     <div id="book-loader" class="book-loader hidden">
@@ -594,7 +594,7 @@
 
             ui.numberPanel.style.width = `${gridTotalSize}px`;
             const numberCells = ui.numberPanel.querySelectorAll('.number-cell');
-            const numCellSize = (gridTotalSize - (9 * 5)) / 10; // 9 gaps for 10 buttons
+            const numCellSize = (gridTotalSize - (9 * 5)) / 10;
             numberCells.forEach(cell => {
                 cell.style.width = `${numCellSize}px`;
                 cell.style.height = `${numCellSize}px`;
@@ -731,6 +731,42 @@
             drawPuzzlesOnPage(doc, [puzzleData], 0, {puzzlesPerPage: 1, includePageNumbers: false});
             doc.save(`Sudoku-${difficulty}.pdf`);
         }
+        
+        function drawAnswerKeyPage(doc, allPuzzlesData) {
+            doc.addPage();
+            const pageW = doc.internal.pageSize.getWidth();
+            const margin = 15;
+            doc.setFont('helvetica', 'bold').setFontSize(20).text("Answer Key", pageW / 2, margin, { align: 'center' });
+
+            const puzzlesPerPage = 6;
+            const cols = 2;
+            const rows = 3;
+            const cellW = (pageW - margin * 2) / cols;
+            const cellH = (doc.internal.pageSize.getHeight() - margin * 2 - 10) / rows;
+
+            allPuzzlesData.forEach((puzzleData, index) => {
+                if (index > 0 && index % puzzlesPerPage === 0) {
+                    doc.addPage();
+                    doc.setFont('helvetica', 'bold').setFontSize(20).text("Answer Key", pageW / 2, margin, { align: 'center' });
+                }
+
+                const puzzleNumber = index + 1;
+                const i = index % puzzlesPerPage;
+                const col = i % cols;
+                const row = Math.floor(i / cols);
+                const startX = margin + col * cellW;
+                const startY = margin + 10 + row * cellH;
+
+                doc.setFont('helvetica', 'bold').setFontSize(10).text(`Puzzle ${puzzleNumber}`, startX + cellW / 2, startY + 8, { align: 'center' });
+
+                const gridTotalSize = Math.min(cellW * 0.8, cellH * 0.8);
+                const gridStartX = startX + (cellW - gridTotalSize) / 2;
+                const gridStartY = startY + 12;
+
+                drawSingleSudokuGrid(doc, puzzleData, gridStartX, gridStartY, gridTotalSize, true);
+            });
+        }
+
 
         function drawPuzzlesOnPage(doc, puzzles, startIndex, options) {
             const { puzzlesPerPage, includePageNumbers } = options;
@@ -826,6 +862,13 @@
                     if (!isGeneratingBook) throw new Error("Cancelled");
                     doc.addPage();
                     drawPuzzlesOnPage(doc, allPuzzlesData, i, bookOptions);
+                }
+                
+                if (bookOptions.includeSolutions) {
+                    if (!isGeneratingBook) throw new Error("Cancelled");
+                    ui.loaderTextBook.textContent = "Generating Answer Key...";
+                    await new Promise(r => setTimeout(r, 50));
+                    drawAnswerKeyPage(doc, allPuzzlesData);
                 }
                 
                 const safeTitle = (bookOptions.title.replace(/[^a-zA-Z0-9]/g, '-') || `Sudoku-Book`).substring(0, 50);
