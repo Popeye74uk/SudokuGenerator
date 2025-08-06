@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sudoku Generator v1.2</title>
+    <title>Sudoku Generator v1.4</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
         :root {
@@ -238,7 +238,7 @@
         </div>
 
         <div id="status-container"><p id="source-status"></p></div>
-        <div id="version-info">v1.2</div>
+        <div id="version-info">v1.4</div>
     </div>
     
     <script>
@@ -596,21 +596,29 @@
         function drawSudokuOnPdfPage(doc, puzzleData) {
             const { puzzle, difficulty, title } = puzzleData;
             const pageW = doc.internal.pageSize.getWidth();
-            const margin = 15;
+            const margin = 20;
             let currentY = margin;
-            
-            doc.setFont('helvetica', 'bold').setFontSize(16).text(title, pageW / 2, currentY, { align: 'center' });
+
+            doc.setFont('helvetica', 'bold').setFontSize(20).text(title, pageW / 2, currentY, { align: 'center' });
             currentY += 8;
             doc.setFont('helvetica', 'normal').setFontSize(12).text(`Difficulty: ${difficulty}`, pageW / 2, currentY, { align: 'center' });
-            currentY += 10;
+            currentY += 15;
 
-            const gridTotalSize = 180;
-            const cellSize = gridTotalSize / 9;
+            const gridTotalSize = 160;
+            const contentWidth = gridTotalSize + 10;
             const startX = (pageW - gridTotalSize) / 2;
             const startY = currentY;
 
-            // Draw numbers first
-            doc.setFont('helvetica', 'normal').setFontSize(14);
+            const contentHeight = gridTotalSize + 10;
+
+            doc.setDrawColor(0);
+            doc.setLineWidth(0.5);
+            doc.roundedRect((pageW - contentWidth) / 2, startY - 5, contentWidth, contentHeight, 3, 3, 'S');
+
+            const cellSize = gridTotalSize / 9;
+            const fontSize = (cellSize * 0.7) / 0.352778; 
+            doc.setFont('helvetica', 'normal').setFontSize(fontSize).setTextColor(0);
+
             for (let r = 0; r < 9; r++) {
                 for (let c = 0; c < 9; c++) {
                     if (puzzle[r][c] !== 0) {
@@ -621,13 +629,12 @@
                 }
             }
 
-            // Draw grid lines
             doc.setDrawColor(0);
             for (let i = 0; i <= 9; i++) {
                 const isThick = i % 3 === 0;
                 doc.setLineWidth(isThick ? 0.6 : 0.2);
-                doc.line(startX, startY + i * cellSize, startX + gridTotalSize, startY + i * cellSize); // Horizontal
-                doc.line(startX + i * cellSize, startY, startX + i * cellSize, startY + gridTotalSize); // Vertical
+                doc.line(startX, startY + i * cellSize, startX + gridTotalSize, startY + i * cellSize);
+                doc.line(startX + i * cellSize, startY, startX + i * cellSize, startY + gridTotalSize);
             }
         }
 
@@ -638,15 +645,14 @@
             }
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-            const difficulty = ui.difficultySelect.value;
-            const difficultyString = difficulty.charAt(0).toUpperCase() + difficulty.slice(1);
-
+            const difficulty = ui.status.textContent.split(': ')[1] || 'Custom';
+            
             drawSudokuOnPdfPage(doc, {
                 puzzle: puzzleBoard,
-                difficulty: difficultyString,
+                difficulty: difficulty,
                 title: "Sudoku Puzzle"
             });
-            doc.save(`Sudoku-${difficultyString}.pdf`);
+            doc.save(`Sudoku-${difficulty}.pdf`);
         }
 
 
