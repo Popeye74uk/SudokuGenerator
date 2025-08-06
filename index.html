@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sudoku Generator v0.4</title>
+    <title>Sudoku Generator v0.5</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
         :root {
@@ -62,7 +62,9 @@
 
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; font-size: 16px; color: var(--color-text-primary); background-color: var(--color-background); padding: 20px; margin: 0; display: flex; justify-content: center; align-items: flex-start; min-height: 100vh; transition: background-color 0.3s, color 0.3s; }
         .container { width: 100%; max-width: 900px; margin: 0 auto; text-align: center; }
-        .main-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; max-width: 600px; margin-left: auto; margin-right: auto; }
+        
+        /* --- Header Layout Fix --- */
+        .main-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
         .main-header h1 { flex-grow: 1; margin: 0; padding: 0 10px; text-align: center; }
         .header-buttons { display: flex; gap: 10px; }
         .header-spacer { min-width: 100px; flex-shrink: 0; }
@@ -71,7 +73,7 @@
         #grid-wrapper { position: relative; }
         #grid-wrapper:fullscreen { background-color: var(--color-background); padding: 20px; display: flex; justify-content: center; align-items: center; }
         
-        #grid { border: 3px solid var(--color-grid-box-lines); border-radius: 5px; background-color: var(--color-grid-box-lines); display: flex; flex-direction: column; gap: 1px; }
+        #grid { border: 3px solid var(--color-grid-box-lines); border-radius: 5px; background-color: var(--color-grid-lines); display: flex; flex-direction: column; gap: 1px; }
         .grid-row { display: grid; gap: 1px; }
 
         .grid-cell { background-color: var(--color-grid-cell-bg); color: var(--color-grid-user-text); font-weight: bold; display: flex; justify-content: center; align-items: center; cursor: pointer; user-select: none; transition: background-color 0.2s; font-size: 1.5em; }
@@ -80,9 +82,9 @@
         .grid-cell.related-cell { background-color: var(--color-grid-related-bg); }
         .grid-cell.highlighted { background-color: var(--color-grid-highlighted-bg); }
 
-        /* --- Border Enhancement --- */
-        .grid-cell:nth-child(3n):not(:nth-child(9n)) { border-right: 3px solid var(--color-grid-box-lines); }
-        .grid-row:nth-child(3n):not(:nth-child(9)) { border-bottom: 3px solid var(--color-grid-box-lines); }
+        /* --- Grid Border Fix --- */
+        .grid-row:nth-child(3), .grid-row:nth-child(6) { border-bottom: 2px solid var(--color-grid-box-lines); }
+        .grid-cell:nth-child(3), .grid-cell:nth-child(6) { border-right: 2px solid var(--color-grid-box-lines); }
 
         .grid-cell.correct { background-color: var(--color-correct-bg); }
         .grid-cell.incorrect { background-color: var(--color-incorrect-bg); }
@@ -92,9 +94,11 @@
         .spinner { border: 4px solid var(--color-spinner-track); border-top: 4px solid var(--color-primary); border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         
+        /* --- Spacing Fix --- */
+        .global-options-container { display: flex; justify-content: center; align-items: center; gap: 10px 25px; margin-top: 25px; font-size: 1em; color: var(--color-text-primary); }
         .controls-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; max-width: 415px; margin: 25px auto 0 auto; }
-        .global-options-container { display: flex; justify-content: center; align-items: center; gap: 10px 25px; margin-top: 5px; margin-bottom: 5px; font-size: 1em; color: var(--color-text-primary); }
         .option-group { display: flex; align-items: center; gap: 10px; }
+        
         button { padding: 12px 20px; font-size: 1em; font-weight: bold; cursor: pointer; color: white; border: none; border-radius: 5px; transition: all 0.2s; box-shadow: 0 2px 4px var(--color-box-shadow); width: 100%; box-sizing: border-box; }
         button:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 4px 8px var(--color-box-shadow-hover); }
         button:disabled { background-color: var(--color-button-disabled-bg); cursor: not-allowed; opacity: 0.7; }
@@ -135,6 +139,7 @@
 </head>
 <body>
     <div class="container">
+        <!-- Header Layout Fix -->
         <header class="main-header">
             <div class="header-spacer"></div>
             <h1>Sudoku Generator</h1>
@@ -182,7 +187,7 @@
         </div>
 
         <div id="status-container"><p id="source-status"></p></div>
-        <div id="version-info">v0.4</div>
+        <div id="version-info">v0.5</div>
     </div>
 
     <div id="completion-modal" onclick="this.classList.remove('visible')">
@@ -506,17 +511,24 @@
         ui.grid.addEventListener('click', (e) => {
             const cell = e.target.closest('.grid-cell');
             if (cell) {
-                // Allow clicking any cell to select it
                 handleCellClick(parseInt(cell.dataset.row), parseInt(cell.dataset.col));
             }
         });
 
         document.addEventListener('keydown', (e) => {
-            if(ui.completionModal.classList.contains('visible') || selectedCell.row === -1) return;
+            if(ui.completionModal.classList.contains('visible')) return;
+
+            // --- Fullscreen Hotkey Fix ---
+            if (e.key.toLowerCase() === 'f') {
+                e.preventDefault();
+                toggleFullScreen();
+                return; // Prevent further processing
+            }
+
+            if(selectedCell.row === -1) return;
             
             const { row, col } = selectedCell;
 
-            // Prevent editing "given" numbers
             if (puzzleBoard[row][col] !== 0) return;
 
             if (e.key >= '1' && e.key <= '9') {
@@ -526,11 +538,6 @@
                 e.preventDefault();
                 userBoard[row][col] = 0;
                 updateGridDisplay();
-            }
-
-            if (e.key.toLowerCase() === 'f') {
-                 e.preventDefault();
-                 toggleFullScreen();
             }
         });
         
