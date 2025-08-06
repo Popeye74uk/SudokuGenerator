@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sudoku Generator v2.13</title>
+    <title>Sudoku Generator v2.14</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
         :root {
@@ -128,9 +128,10 @@
         .flash-conflict { animation: flash-red-bg 0.5s ease; }
         @keyframes flash-red-bg { 50% { background-color: var(--color-incorrect-bg); } }
 
-        .loader { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center; flex-direction: column; gap: 15px; z-index: 10; font-size: 1.1em; color: white; border-radius: 4px; }
-        .loader.hidden { opacity: 0; pointer-events: none; }
-        #cancel-book-btn { display: none; }
+        .grid-loader { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center; flex-direction: column; gap: 15px; z-index: 10; font-size: 1.1em; color: white; border-radius: 4px; }
+        .book-loader { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: var(--color-background); display: flex; justify-content: center; align-items: center; flex-direction: column; gap: 20px; z-index: 100; color: var(--color-text-primary); }
+        .book-loader button { background-color: var(--color-text-secondary); width: auto; min-width: 120px; }
+        .hidden { display: none; }
         .spinner { border: 4px solid var(--color-spinner-track); border-top: 4px solid var(--color-primary); border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
         
         .global-options-container { display: flex; justify-content: center; align-items: center; gap: 10px 25px; margin-top: 25px; font-size: 1em; color: var(--color-text-primary); }
@@ -160,10 +161,7 @@
 
         .book-options-grid { display: grid; grid-template-columns: auto 1fr; gap: 10px 15px; align-items: center; }
         .book-options-grid label { text-align: right; }
-        #puzzle-count-input, #puzzles-per-page-select {
-            width: 70px;
-            box-sizing: border-box;
-        }
+        #puzzle-count-input, #puzzles-per-page-select { width: 70px; box-sizing: border-box; }
         #book-checkbox-options { display: flex; gap: 20px; align-items: center; justify-content: flex-start; }
         
         #number-panel { display: flex; justify-content: space-between; gap: 5px; margin: 15px auto 0; transition: width 0.3s ease; }
@@ -197,6 +195,8 @@
         body.dark-mode .icon-sun { display: block; }
         body:not(.dark-mode) .icon-moon { display: block; }
 
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
         @media (max-width: 480px) {
             .main-header h1 { font-size: 1.8em; }
             .controls-grid { grid-template-columns: 1fr; }
@@ -224,10 +224,9 @@
         <div id="puzzle-container">
             <div id="grid-wrapper">
                 <div id="grid"></div>
-                <div id="loader" class="loader hidden">
+                <div id="grid-loader" class="grid-loader hidden">
                     <div class="spinner"></div>
-                    <span id="loader-text">Generating Puzzle...</span>
-                    <button id="cancel-book-btn" style="display:none;">Cancel</button>
+                    <span id="loader-text-grid">Generating Puzzle...</span>
                 </div>
                 <div id="completion-modal">
                     <div class="modal-content">
@@ -267,7 +266,6 @@
 
         <div id="create-puzzle-panel" class="panel">
             <h3>Create a Custom Puzzle</h3>
-            <p>Define a structure for your puzzle by choosing how many rows, columns, or 3x3 boxes should be complete. The generator will create a valid puzzle based on your choices.</p>
             <div class="create-options-grid">
                 <label for="completed-rows-input">Completed Rows:</label>
                 <input type="number" id="completed-rows-input" value="0" min="0" max="9">
@@ -315,19 +313,28 @@
         </div>
 
         <div id="status-container"><p id="source-status"></p></div>
-        <div id="version-info">v2.13</div>
+        <div id="version-info">v2.14</div>
+    </div>
+
+    <div id="book-loader" class="book-loader hidden">
+        <div class="spinner"></div>
+        <span id="loader-text-book"></span>
+        <button id="cancel-book-generation-btn">Cancel</button>
     </div>
     
     <script>
         // --- GLOBAL VARIABLES & CONSTANTS ---
         const ui = {
+            container: document.getElementById('container'),
             grid: document.getElementById('grid'),
             numberPanel: document.getElementById('number-panel'),
             gridWrapper: document.getElementById('grid-wrapper'),
             puzzleContainer: document.getElementById('puzzle-container'),
-            loader: document.getElementById('loader'),
-            loaderText: document.getElementById('loader-text'),
-            cancelBookBtn: document.getElementById('cancel-book-btn'),
+            gridLoader: document.getElementById('grid-loader'),
+            loaderTextGrid: document.getElementById('loader-text-grid'),
+            bookLoader: document.getElementById('book-loader'),
+            loaderTextBook: document.getElementById('loader-text-book'),
+            cancelBookGenerationBtn: document.getElementById('cancel-book-generation-btn'),
             difficultySelect: document.getElementById('difficulty-select'),
             status: document.getElementById('source-status'),
             generateBtn: document.getElementById('generate-btn'),
@@ -422,7 +429,7 @@
                 case 'easy': return 35;
                 case 'medium': return 30;
                 case 'hard': return 25;
-                case 'expert': return 21; // Made more difficult
+                case 'expert': return 20;
                 default: return 30;
             }
         }
@@ -517,9 +524,8 @@
 
         function setUiLoading(isLoading, message = 'Generating Puzzle...') {
             document.querySelectorAll('button, select, input').forEach(el => el.disabled = isLoading);
-            ui.loaderText.textContent = message;
-            ui.loader.classList.toggle('hidden', !isLoading);
-            ui.cancelBookBtn.style.display = 'none';
+            ui.loaderTextGrid.textContent = message;
+            ui.gridLoader.classList.toggle('hidden', !isLoading);
         }
         
         function updateNumberPanel() {
@@ -783,10 +789,10 @@
             };
 
             if (isNaN(bookOptions.puzzleCount) || bookOptions.puzzleCount < 1 || bookOptions.puzzleCount > 100) { alert("Please enter a number between 1 and 100."); return; }
+            
             isGeneratingBook = true;
-            setUiLoading(true, "Preparing Book...");
-            ui.cancelBookBtn.style.display = 'block';
-            ui.gridWrapper.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            ui.container.style.display = 'none';
+            ui.bookLoader.classList.remove('hidden');
 
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
@@ -796,14 +802,14 @@
             try {
                 for (let i = 1; i <= bookOptions.puzzleCount; i++) {
                     if (!isGeneratingBook) throw new Error("Cancelled");
-                    setUiLoading(true, `Generating Puzzle ${i} of ${bookOptions.puzzleCount}...`);
+                    ui.loaderTextBook.textContent = `Generating Puzzle ${i} of ${bookOptions.puzzleCount}...`;
                     await new Promise(r => setTimeout(r, 10));
                     const diff = ui.difficultySelect.value;
                     const { puzzle, solution } = generateSudoku({difficulty: diff});
                     allPuzzlesData.push({ puzzle, solution, difficulty: diff.charAt(0).toUpperCase() + diff.slice(1) });
                 }
 
-                setUiLoading(true, `Building PDF...`);
+                ui.loaderTextBook.textContent = `Building PDF...`;
                 await new Promise(r => setTimeout(r, 10));
 
                 if (bookOptions.title) {
@@ -827,7 +833,9 @@
                 ui.status.textContent = `Error: ${error.message === "Cancelled" ? "Book generation cancelled." : error.message}`;
             } finally {
                 isGeneratingBook = false;
-                setUiLoading(false);
+                ui.container.style.display = '';
+                ui.bookLoader.classList.add('hidden');
+                setUiLoading(false); 
                 hidePanel();
             }
         }
@@ -884,6 +892,7 @@
         
         ui.createPuzzleBtn.addEventListener('click', () => showPanel(ui.createPuzzlePanel));
         ui.cancelCreatePuzzleBtn.addEventListener('click', hidePanel);
+        ui.cancelBookGenerationBtn.addEventListener('click', () => { isGeneratingBook = false; });
 
         ui.startCreatedPuzzleBtn.addEventListener('click', () => {
              startNewGame(new Promise((resolve, reject) => {
