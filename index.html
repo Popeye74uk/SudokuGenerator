@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sudoku Generator v2.7</title>
+    <title>Sudoku Generator v2.8</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
         :root {
@@ -104,6 +104,7 @@
             transition: background-color 0.2s, color 0.2s;
             border-top: 1px solid var(--color-grid-lines);
             border-left: 1px solid var(--color-grid-lines);
+            box-sizing: border-box; /* Fix for squashed row */
         }
 
         .grid-cell[data-row="0"], .grid-cell[data-row="3"], .grid-cell[data-row="6"] {
@@ -159,8 +160,8 @@
         .book-options-grid label { text-align: right; }
         #book-checkbox-options { display: flex; gap: 20px; align-items: center; justify-content: flex-start; }
         
-        #number-panel { display: flex; justify-content: center; gap: 5px; margin: 20px auto 0; max-width: fit-content; }
-        .number-cell { width: 40px; height: 40px; display: flex; justify-content: center; align-items: center; font-size: 1.5em; font-weight: bold; border: 2px solid var(--color-grid-box-lines); border-radius: 4px; cursor: pointer; transition: all 0.2s; background-color: var(--color-grid-cell-bg); }
+        #number-panel { display: flex; justify-content: center; gap: 5px; margin: 20px auto 0; max-width: fit-content; transition: width 0.3s ease; }
+        .number-cell { width: 40px; height: 40px; display: flex; justify-content: center; align-items: center; font-size: 1.5em; font-weight: bold; border: 2px solid var(--color-grid-box-lines); border-radius: 4px; cursor: pointer; transition: all 0.2s; background-color: var(--color-grid-cell-bg); flex: 1; }
         .number-cell:hover { background-color: var(--color-grid-related-bg); }
         .number-cell.used-up {
             background-color: var(--color-grid-cell-bg);
@@ -310,7 +311,7 @@
         </div>
 
         <div id="status-container"><p id="source-status"></p></div>
-        <div id="version-info">v2.7</div>
+        <div id="version-info">v2.8</div>
     </div>
     
     <script>
@@ -540,10 +541,12 @@
             
             const containerSize = Math.min(containerWidth, containerHeight, 600);
             const cellSize = Math.floor(containerSize / 9);
+            const gridTotalSize = cellSize * 9;
 
-            ui.grid.style.width = `${cellSize * 9}px`;
-            ui.grid.style.height = `${cellSize * 9}px`;
+            ui.grid.style.width = `${gridTotalSize}px`;
+            ui.grid.style.height = `${gridTotalSize}px`;
             ui.grid.style.gridTemplateColumns = `repeat(9, ${cellSize}px)`;
+            ui.grid.style.gridTemplateRows = `repeat(9, ${cellSize}px)`;
             
             const selectedValue = (selectedCell.row !== -1) ? (userBoard[selectedCell.row][selectedCell.col] || puzzleBoard[selectedCell.row][selectedCell.col]) : 0;
 
@@ -553,8 +556,6 @@
                     cell.className = 'grid-cell';
                     cell.dataset.row = r;
                     cell.dataset.col = c;
-                    cell.style.width = `${cellSize}px`;
-                    cell.style.height = `${cellSize}px`;
                     cell.style.fontSize = `${cellSize * 0.5}px`;
                     
                     const coordKey = `${r},${c}`;
@@ -582,24 +583,14 @@
                 }
             }
 
-            // Style Number Panel
+            // Style Number Panel to match grid width
+            ui.numberPanel.style.width = `${gridTotalSize}px`;
             const numberCells = ui.numberPanel.querySelectorAll('.number-cell');
-            if(isFullscreen) {
-                ui.numberPanel.style.width = `${cellSize * 9}px`;
-                const numberCellSize = (cellSize * 9 - 8 * 5) / 9; // 8 gaps of 5px
-                numberCells.forEach(cell => {
-                    cell.style.width = `${numberCellSize}px`;
-                    cell.style.height = `${numberCellSize}px`;
-                    cell.style.fontSize = `${numberCellSize * 0.6}px`;
-                });
-            } else {
-                 ui.numberPanel.style.width = '';
-                 numberCells.forEach(cell => {
-                    cell.style.width = '';
-                    cell.style.height = '';
-                    cell.style.fontSize = '';
-                 });
-            }
+            const numberCellHeight = isFullscreen ? (gridTotalSize / 9) : 40;
+            numberCells.forEach(cell => {
+                cell.style.height = `${numberCellHeight}px`;
+                cell.style.fontSize = `${numberCellHeight * 0.6}px`;
+            });
 
             updateNumberPanel();
         }
@@ -734,11 +725,11 @@
 
         function drawPuzzlesOnPage(doc, puzzles, startIndex, options) {
             const { puzzlesPerPage, includePageNumbers } = options;
-            const pageW = doc.internal.pageSize.getWidth(), pageH = doc.internal.pageSize.getHeight(), margin = 20, cornerRadius = 3, padding = 4;
+            const pageW = doc.internal.pageSize.getWidth(), pageH = doc.internal.pageSize.getHeight(), margin = 20, cornerRadius = 3;
             const layouts = {
-                1: [{ x: (pageW - 160) / 2, y: 50, size: 160 }],
-                2: [{ x: (pageW - 110) / 2, y: 30, size: 110 }, { x: (pageW - 110) / 2, y: 155, size: 110 }],
-                4: [{ x: margin, y: 30, size: 80 }, { x: pageW - 80 - margin, y: 30, size: 80 }, { x: margin, y: 140, size: 80 }, { x: pageW - 80 - margin, y: 140, size: 80 }]
+                1: [{ x: (pageW - 160) / 2, y: 40, size: 160 }],
+                2: [{ x: (pageW - 110) / 2, y: 25, size: 110 }, { x: (pageW - 110) / 2, y: 150, size: 110 }],
+                4: [{ x: margin, y: 25, size: 80 }, { x: pageW - 80 - margin, y: 25, size: 80 }, { x: margin, y: 145, size: 80 }, { x: pageW - 80 - margin, y: 145, size: 80 }]
             };
             const layout = layouts[puzzlesPerPage] || layouts[1];
 
@@ -747,25 +738,28 @@
                 if (puzzleIndex >= puzzles.length) break;
                 const puzzleData = puzzles[puzzleIndex];
                 const { x, y, size } = layout[i];
-
-                const numberPanelHeight = size / 9;
-                const containerPadding = 5;
-                const totalContainerHeight = size + containerPadding + numberPanelHeight;
+                
+                const gridPadding = 4;
+                const panelPadding = 5;
+                const numberPanelHeight = (size / 9) + gridPadding; 
+                const totalContainerHeight = size + panelPadding + numberPanelHeight;
 
                 doc.setFont('helvetica', 'bold').setFontSize(14).text(`Puzzle ${puzzleIndex + 1}`, x + size / 2, y - 8, { align: 'center' });
                 doc.setFont('helvetica', 'normal').setFontSize(10).text(`Difficulty: ${puzzleData.difficulty}`, x + size / 2, y - 2, { align: 'center' });
-                doc.setDrawColor(0).setLineWidth(0.5).roundedRect(x, y, size, totalContainerHeight, cornerRadius, cornerRadius, 'S');
-
-                const gridX = x + padding, gridY = y + padding, gridSize = size - (padding * 2);
+                doc.setDrawColor(0).setLineWidth(0.6).roundedRect(x, y, size, totalContainerHeight, cornerRadius, cornerRadius, 'S');
+                
+                const gridX = x + gridPadding, gridY = y + gridPadding, gridSize = size - (gridPadding * 2);
                 drawSingleSudokuGrid(doc, puzzleData, gridX, gridY, gridSize, false);
                 
-                const panelAreaY = y + size + containerPadding;
-                const panelCellSize = gridSize / 9;
-                const panelCellGap = (gridSize - (9 * panelCellSize)) / 8;
-                const totalPanelWidth = 9 * panelCellSize + 8 * panelCellGap;
+                const panelAreaY = y + size + panelPadding;
+                const panelCellGap = 2;
+                const totalGapsWidth = 8 * panelCellGap;
+                const panelCellSize = (size - totalGapsWidth) / 9;
+                const totalPanelWidth = size;
                 const panelStartX = x + (size - totalPanelWidth) / 2;
-                
-                doc.setFont('helvetica', 'bold').setFontSize(panelCellSize * 0.6);
+                const panelCellFontSize = (panelCellSize * 0.5) / 0.352778;
+
+                doc.setFont('helvetica', 'bold').setFontSize(panelCellFontSize);
                 for (let n = 1; n <= 9; n++) {
                     const cellX = panelStartX + (n-1) * (panelCellSize + panelCellGap);
                     const cellY = panelAreaY + (numberPanelHeight - panelCellSize) / 2;
