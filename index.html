@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sudoku Generator v2.5</title>
+    <title>Sudoku Generator v2.6</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
         :root {
@@ -72,8 +72,16 @@
         
         #puzzle-container { display: flex; margin-top: 20px; justify-content: center; }
         #grid-wrapper { position: relative; }
-        #grid-wrapper:fullscreen { background-color: var(--color-background); padding: 20px; display: flex; justify-content: center; align-items: center; }
-        
+        #grid-wrapper:fullscreen { background-color: var(--color-background); padding: 20px; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 20px; }
+        body:has(#grid-wrapper:fullscreen) .main-header,
+        body:has(#grid-wrapper:fullscreen) .global-options-container,
+        body:has(#grid-wrapper:fullscreen) .controls-grid,
+        body:has(#grid-wrapper:fullscreen) .panel,
+        body:has(#grid-wrapper:fullscreen) #status-container,
+        body:has(#grid-wrapper:fullscreen) #version-info {
+            display: none;
+        }
+
         #grid {
             display: grid;
             grid-template-columns: repeat(9, auto);
@@ -155,7 +163,13 @@
         .number-cell { width: 40px; height: 40px; display: flex; justify-content: center; align-items: center; font-size: 1.5em; font-weight: bold; border: 1px solid var(--color-grid-lines); border-radius: 4px; cursor: pointer; transition: all 0.2s; background-color: var(--color-grid-cell-bg); }
         .number-cell:nth-child(3n) { margin-right: 5px; }
         .number-cell:hover { background-color: var(--color-grid-related-bg); }
-        .number-cell.used-up { background-color: var(--color-text-secondary); color: var(--color-text-primary); text-decoration: line-through; cursor: default; }
+        .number-cell.used-up {
+            background-color: var(--color-grid-cell-bg);
+            color: var(--color-text-secondary);
+            text-decoration: line-through;
+            font-weight: normal;
+            cursor: default;
+        }
 
         #status-container { text-align: center; margin-top: 15px; font-style: italic; min-height: 20px; color: var(--color-text-secondary); }
         #version-info { text-align: center; margin-top: 20px; font-size: 0.8em; color: var(--color-grid-lines); }
@@ -222,10 +236,10 @@
                         <button>Play Again?</button>
                     </div>
                 </div>
+                <div id="number-panel"></div>
             </div>
         </div>
-        <div id="number-panel"></div>
-
+        
         <div class="global-options-container">
             <div class="option-group">
                 <label for="difficulty-select"><b>Difficulty:</b></label>
@@ -297,7 +311,7 @@
         </div>
 
         <div id="status-container"><p id="source-status"></p></div>
-        <div id="version-info">v2.5</div>
+        <div id="version-info">v2.6</div>
     </div>
     
     <script>
@@ -521,9 +535,15 @@
             const newConflictCoords = updateConflicts();
             ui.grid.innerHTML = '';
             
-            const containerSize = Math.min(ui.puzzleContainer.clientWidth, 600);
+            const isFullscreen = !!document.fullscreenElement;
+            const containerWidth = isFullscreen ? window.innerWidth * 0.8 : ui.puzzleContainer.clientWidth;
+            const containerHeight = isFullscreen ? window.innerHeight * 0.8 : 600;
+            
+            const containerSize = Math.min(containerWidth, containerHeight, 600);
             const cellSize = Math.floor(containerSize / 9);
 
+            ui.grid.style.width = `${cellSize * 9}px`;
+            ui.grid.style.height = `${cellSize * 9}px`;
             ui.grid.style.gridTemplateColumns = `repeat(9, ${cellSize}px)`;
             
             const selectedValue = (selectedCell.row !== -1) ? (userBoard[selectedCell.row][selectedCell.col] || puzzleBoard[selectedCell.row][selectedCell.col]) : 0;
@@ -562,6 +582,26 @@
                     ui.grid.appendChild(cell);
                 }
             }
+
+            // Style Number Panel
+            const numberCells = ui.numberPanel.querySelectorAll('.number-cell');
+            if(isFullscreen) {
+                ui.numberPanel.style.width = `${cellSize * 9}px`;
+                const numberCellSize = (cellSize * 9 - 8 * 5) / 9; // 8 gaps of 5px
+                numberCells.forEach(cell => {
+                    cell.style.width = `${numberCellSize}px`;
+                    cell.style.height = `${numberCellSize}px`;
+                    cell.style.fontSize = `${numberCellSize * 0.6}px`;
+                });
+            } else {
+                 ui.numberPanel.style.width = '';
+                 numberCells.forEach(cell => {
+                    cell.style.width = '';
+                    cell.style.height = '';
+                    cell.style.fontSize = '';
+                 });
+            }
+
             updateNumberPanel();
         }
 
@@ -649,8 +689,7 @@
             updateGridDisplay();
         }
 
-        function showPanel(event, panel) {
-            event.preventDefault();
+        function showPanel(panel) {
             ui.mainControls.style.display = 'none';
             ui.createPuzzlePanel.style.display = 'none';
             ui.generateBookPanel.style.display = 'none';
@@ -715,13 +754,13 @@
                 doc.setDrawColor(0).setLineWidth(0.5).roundedRect(x, y, size, size, cornerRadius, cornerRadius, 'S');
                 drawSingleSudokuGrid(doc, puzzleData, gridX, gridY, gridSize, false);
                 
-                // Draw number panel on PDF
                 const panelY = y + size + 5;
                 const panelCellSize = (size / 9) * 0.8;
-                const panelStartX = x + (size - (panelCellSize * 9 + 4 * 5)) / 2;
+                const panelWidth = panelCellSize * 9 + 8 * (panelCellSize * 0.2);
+                const panelStartX = x + (size - panelWidth) / 2;
                 doc.setFont('helvetica', 'normal').setFontSize(panelCellSize * 0.7);
                 for (let n = 1; n <= 9; n++) {
-                    const cellX = panelStartX + (n-1) * (panelCellSize + 5) + ((n > 3 && n < 7) ? 2 : (n >= 7 ? 4 : 0));
+                    const cellX = panelStartX + (n-1) * (panelCellSize + panelCellSize * 0.2);
                     doc.setDrawColor(150).setLineWidth(0.2).rect(cellX, panelY, panelCellSize, panelCellSize, 'S');
                     doc.text(String(n), cellX + panelCellSize/2, panelY + panelCellSize/2, { align: 'center', baseline: 'middle' });
                 }
@@ -730,7 +769,7 @@
             if (includePageNumbers) doc.setFont('helvetica', 'normal').setFontSize(8).text(String(Math.floor(startIndex / puzzlesPerPage) + 1), pageW / 2, pageH - 10, { align: 'center' });
         }
         
-        async function createAndDownloadBook() {
+         async function createAndDownloadBook() {
             const bookOptions = {
                 title: document.getElementById('book-title-input').value.trim(),
                 subtitle: document.getElementById('book-subtitle-input').value.trim(),
@@ -775,8 +814,6 @@
                     drawPuzzlesOnPage(doc, allPuzzlesData, i, bookOptions);
                 }
                 
-                // If you need answer key, you must implement drawAnswerKey function
-                
                 const safeTitle = (bookOptions.title.replace(/[^a-zA-Z0-9]/g, '-') || `Sudoku-Book`).substring(0, 50);
                 doc.save(`${safeTitle}.pdf`);
                 ui.status.textContent = "Book successfully generated!";
@@ -820,7 +857,7 @@
         });
         
         function toggleFullScreen() {
-            if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(err => alert(`Fullscreen error: ${err.message}`));
+            if (!document.fullscreenElement) ui.gridWrapper.requestFullscreen().catch(err => alert(`Fullscreen error: ${err.message}`));
             else document.exitFullscreen();
         }
         
@@ -840,7 +877,7 @@
         ui.downloadPdfBtn.addEventListener('click', downloadPdf);
         ui.difficultySelect.addEventListener('change', defaultGame);
         
-        ui.createPuzzleBtn.addEventListener('click', (e) => showPanel(e, ui.createPuzzlePanel));
+        ui.createPuzzleBtn.addEventListener('click', () => showPanel(ui.createPuzzlePanel));
         ui.cancelCreatePuzzleBtn.addEventListener('click', hidePanel);
 
         ui.startCreatedPuzzleBtn.addEventListener('click', () => {
@@ -859,7 +896,7 @@
             }));
         });
         
-        ui.makeBookBtn.addEventListener('click', (e) => showPanel(e, ui.generateBookPanel));
+        ui.makeBookBtn.addEventListener('click', () => showPanel(ui.generateBookPanel));
         ui.cancelBookOptionsBtn.addEventListener('click', hidePanel);
         ui.createBookBtn.addEventListener('click', createAndDownloadBook);
 
