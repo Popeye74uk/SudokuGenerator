@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sudoku Generator v1.1</title>
+    <title>Sudoku Generator v1.2</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
         :root {
@@ -135,7 +135,6 @@
         #make-book-btn { background-color: var(--color-danger); }
         #hint-btn { background-color: var(--color-info); }
         
-        /* --- Custom Puzzle Panel --- */
         #custom-puzzle-panel { max-width: 415px; margin: 25px auto 0; padding: 20px; border-radius: 8px; box-shadow: 0 4px 12px var(--color-box-shadow); display: none; }
         #custom-puzzle-panel h3 { margin-top: 0; }
         #custom-puzzle-panel p { font-size: 0.9em; color: var(--color-text-secondary); margin-bottom: 15px; }
@@ -193,8 +192,7 @@
                     <div class="spinner"></div>
                     <span id="loader-text">Generating Puzzle...</span>
                 </div>
-                <!-- Fullscreen Modal Fix: Moved modal inside wrapper -->
-                <div id="completion-modal" onclick="this.classList.remove('visible')">
+                <div id="completion-modal">
                     <div class="modal-content">
                         <h2>You Solved It!</h2>
                         <div id="completion-details">
@@ -225,7 +223,7 @@
             <button id="custom-puzzle-btn">Custom Puzzle</button>
             <button id="hint-btn">Hint</button>
             <button id="reveal-btn">Reveal Solution</button>
-            <button id="download-pdf-btn" disabled>Download as PDF</button>
+            <button id="download-pdf-btn">Download as PDF</button>
             <button id="make-book-btn" disabled>Make Book</button>
         </div>
 
@@ -240,7 +238,7 @@
         </div>
 
         <div id="status-container"><p id="source-status"></p></div>
-        <div id="version-info">v1.1</div>
+        <div id="version-info">v1.2</div>
     </div>
     
     <script>
@@ -256,6 +254,7 @@
             generateBtn: document.getElementById('generate-btn'),
             revealBtn: document.getElementById('reveal-btn'),
             hintBtn: document.getElementById('hint-btn'),
+            downloadPdfBtn: document.getElementById('download-pdf-btn'),
             completionModal: document.getElementById('completion-modal'),
             fullscreenBtn: document.getElementById('fullscreen-btn'),
             themeToggleBtn: document.getElementById('theme-toggle-btn'),
@@ -492,7 +491,7 @@
             await new Promise(resolve => setTimeout(resolve, 50));
 
             try {
-                const { puzzle, solution } = await puzzlePromise;
+                const { puzzle, solution, source } = await puzzlePromise;
                 puzzleBoard = puzzle;
                 solutionBoard = solution;
                 userBoard = Array(9).fill(0).map(() => Array(9).fill(0));
@@ -500,8 +499,8 @@
                 
                 updateGridDisplay();
                 startTime = Date.now();
-                puzzleConfigKey = `sudoku-custom-${puzzle.join('')}`; // Unique key for custom puzzles
-                ui.status.textContent = puzzle.source;
+                puzzleConfigKey = `sudoku-custom-${puzzle.join('')}`;
+                ui.status.textContent = source;
 
             } catch(error) {
                 ui.status.textContent = `Error: ${error.message}`;
@@ -592,6 +591,65 @@
             ui.customPuzzlePanel.style.display = 'none';
         }
 
+        // --- PDF Generation ---
+
+        function drawSudokuOnPdfPage(doc, puzzleData) {
+            const { puzzle, difficulty, title } = puzzleData;
+            const pageW = doc.internal.pageSize.getWidth();
+            const margin = 15;
+            let currentY = margin;
+            
+            doc.setFont('helvetica', 'bold').setFontSize(16).text(title, pageW / 2, currentY, { align: 'center' });
+            currentY += 8;
+            doc.setFont('helvetica', 'normal').setFontSize(12).text(`Difficulty: ${difficulty}`, pageW / 2, currentY, { align: 'center' });
+            currentY += 10;
+
+            const gridTotalSize = 180;
+            const cellSize = gridTotalSize / 9;
+            const startX = (pageW - gridTotalSize) / 2;
+            const startY = currentY;
+
+            // Draw numbers first
+            doc.setFont('helvetica', 'normal').setFontSize(14);
+            for (let r = 0; r < 9; r++) {
+                for (let c = 0; c < 9; c++) {
+                    if (puzzle[r][c] !== 0) {
+                        const x = startX + c * cellSize + cellSize / 2;
+                        const y = startY + r * cellSize + cellSize / 2;
+                        doc.text(String(puzzle[r][c]), x, y, { align: 'center', baseline: 'middle' });
+                    }
+                }
+            }
+
+            // Draw grid lines
+            doc.setDrawColor(0);
+            for (let i = 0; i <= 9; i++) {
+                const isThick = i % 3 === 0;
+                doc.setLineWidth(isThick ? 0.6 : 0.2);
+                doc.line(startX, startY + i * cellSize, startX + gridTotalSize, startY + i * cellSize); // Horizontal
+                doc.line(startX + i * cellSize, startY, startX + i * cellSize, startY + gridTotalSize); // Vertical
+            }
+        }
+
+        function downloadPdf() {
+            if (puzzleBoard.length === 0) {
+                alert("Please generate a puzzle first.");
+                return;
+            }
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+            const difficulty = ui.difficultySelect.value;
+            const difficultyString = difficulty.charAt(0).toUpperCase() + difficulty.slice(1);
+
+            drawSudokuOnPdfPage(doc, {
+                puzzle: puzzleBoard,
+                difficulty: difficultyString,
+                title: "Sudoku Puzzle"
+            });
+            doc.save(`Sudoku-${difficultyString}.pdf`);
+        }
+
+
         // --- EVENT LISTENERS ---
 
         ui.grid.addEventListener('click', (e) => {
@@ -649,6 +707,7 @@
         ui.generateBtn.addEventListener('click', () => startNewGame(new Promise(res => { const diff = ui.difficultySelect.value; res({ puzzle: generateSudoku(diff), solution: solutionBoard, source: `Difficulty: ${diff.charAt(0).toUpperCase() + diff.slice(1)}` }) })));
         ui.revealBtn.addEventListener('click', revealSolution);
         ui.hintBtn.addEventListener('click', giveHint);
+        ui.downloadPdfBtn.addEventListener('click', downloadPdf);
         ui.difficultySelect.addEventListener('change', () => startNewGame(new Promise(res => { const diff = ui.difficultySelect.value; res({ puzzle: generateSudoku(diff), solution: solutionBoard, source: `Difficulty: ${diff.charAt(0).toUpperCase() + diff.slice(1)}` }) })));
         
         ui.customPuzzleBtn.addEventListener('click', showCustomPanel);
