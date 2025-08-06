@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sudoku Generator v0.5</title>
+    <title>Sudoku Generator v0.6</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
         :root {
@@ -63,7 +63,6 @@
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; font-size: 16px; color: var(--color-text-primary); background-color: var(--color-background); padding: 20px; margin: 0; display: flex; justify-content: center; align-items: flex-start; min-height: 100vh; transition: background-color 0.3s, color 0.3s; }
         .container { width: 100%; max-width: 900px; margin: 0 auto; text-align: center; }
         
-        /* --- Header Layout Fix --- */
         .main-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
         .main-header h1 { flex-grow: 1; margin: 0; padding: 0 10px; text-align: center; }
         .header-buttons { display: flex; gap: 10px; }
@@ -73,19 +72,46 @@
         #grid-wrapper { position: relative; }
         #grid-wrapper:fullscreen { background-color: var(--color-background); padding: 20px; display: flex; justify-content: center; align-items: center; }
         
-        #grid { border: 3px solid var(--color-grid-box-lines); border-radius: 5px; background-color: var(--color-grid-lines); display: flex; flex-direction: column; gap: 1px; }
-        .grid-row { display: grid; gap: 1px; }
+        /* --- Grid Border Rework --- */
+        #grid {
+            border: 3px solid var(--color-grid-box-lines);
+            border-radius: 5px;
+            display: grid;
+            grid-template-columns: repeat(9, auto);
+        }
 
-        .grid-cell { background-color: var(--color-grid-cell-bg); color: var(--color-grid-user-text); font-weight: bold; display: flex; justify-content: center; align-items: center; cursor: pointer; user-select: none; transition: background-color 0.2s; font-size: 1.5em; }
+        .grid-cell {
+            background-color: var(--color-grid-cell-bg);
+            color: var(--color-grid-user-text);
+            font-weight: bold;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            user-select: none;
+            transition: background-color 0.2s;
+            font-size: 1.5em;
+            border-bottom: 1px solid var(--color-grid-lines);
+            border-right: 1px solid var(--color-grid-lines);
+        }
+
+        /* Thick horizontal lines */
+        .grid-cell[data-row="2"], .grid-cell[data-row="5"] {
+            border-bottom: 3px solid var(--color-grid-box-lines);
+        }
+        /* Thick vertical lines */
+        .grid-cell[data-col="2"], .grid-cell[data-col="5"] {
+            border-right: 3px solid var(--color-grid-box-lines);
+        }
+
+        /* Clean up borders on the edges of the grid */
+        .grid-cell[data-col="8"] { border-right: none; }
+        .grid-cell[data-row="8"] { border-bottom: none; }
+
         .grid-cell.given-cell { color: var(--color-grid-given-text); font-weight: normal;}
         .grid-cell.selected { background-color: var(--color-grid-selected-bg); }
         .grid-cell.related-cell { background-color: var(--color-grid-related-bg); }
         .grid-cell.highlighted { background-color: var(--color-grid-highlighted-bg); }
-
-        /* --- Grid Border Fix --- */
-        .grid-row:nth-child(3), .grid-row:nth-child(6) { border-bottom: 2px solid var(--color-grid-box-lines); }
-        .grid-cell:nth-child(3), .grid-cell:nth-child(6) { border-right: 2px solid var(--color-grid-box-lines); }
-
         .grid-cell.correct { background-color: var(--color-correct-bg); }
         .grid-cell.incorrect { background-color: var(--color-incorrect-bg); }
 
@@ -94,7 +120,6 @@
         .spinner { border: 4px solid var(--color-spinner-track); border-top: 4px solid var(--color-primary); border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         
-        /* --- Spacing Fix --- */
         .global-options-container { display: flex; justify-content: center; align-items: center; gap: 10px 25px; margin-top: 25px; font-size: 1em; color: var(--color-text-primary); }
         .controls-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; max-width: 415px; margin: 25px auto 0 auto; }
         .option-group { display: flex; align-items: center; gap: 10px; }
@@ -139,7 +164,6 @@
 </head>
 <body>
     <div class="container">
-        <!-- Header Layout Fix -->
         <header class="main-header">
             <div class="header-spacer"></div>
             <h1>Sudoku Generator</h1>
@@ -187,7 +211,7 @@
         </div>
 
         <div id="status-container"><p id="source-status"></p></div>
-        <div id="version-info">v0.5</div>
+        <div id="version-info">v0.6</div>
     </div>
 
     <div id="completion-modal" onclick="this.classList.remove('visible')">
@@ -344,18 +368,13 @@
             ui.grid.innerHTML = '';
             
             const containerSize = Math.min(ui.puzzleContainer.clientWidth, 600);
-            const cellSize = Math.floor(containerSize / 9);
+            const cellSize = Math.floor((containerSize - 6) / 9); // -6 for 2x3px borders
 
-            ui.grid.style.width = `${cellSize * 9 + 8}px`; // +8 to account for 1px gaps
-            ui.grid.style.height = `${cellSize * 9 + 8}px`;
-
+            ui.grid.style.gridTemplateColumns = `repeat(9, ${cellSize}px)`;
+            
             const selectedValue = (selectedCell.row !== -1) ? (userBoard[selectedCell.row][selectedCell.col] || puzzleBoard[selectedCell.row][selectedCell.col]) : 0;
 
             for (let r = 0; r < 9; r++) {
-                const rowDiv = document.createElement('div');
-                rowDiv.className = 'grid-row';
-                rowDiv.style.gridTemplateColumns = `repeat(9, ${cellSize}px)`;
-                
                 for (let c = 0; c < 9; c++) {
                     const cell = document.createElement('div');
                     cell.className = 'grid-cell';
@@ -384,9 +403,8 @@
                         }
                     }
 
-                    rowDiv.appendChild(cell);
+                    ui.grid.appendChild(cell);
                 }
-                ui.grid.appendChild(rowDiv);
             }
         }
 
@@ -518,11 +536,10 @@
         document.addEventListener('keydown', (e) => {
             if(ui.completionModal.classList.contains('visible')) return;
 
-            // --- Fullscreen Hotkey Fix ---
             if (e.key.toLowerCase() === 'f') {
                 e.preventDefault();
                 toggleFullScreen();
-                return; // Prevent further processing
+                return; 
             }
 
             if(selectedCell.row === -1) return;
