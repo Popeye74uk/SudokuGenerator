@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sudoku Generator v2.11</title>
+    <title>Sudoku Generator v2.12</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
         :root {
@@ -293,7 +293,7 @@
                 <input type="number" id="puzzle-count-input" value="20" min="1" max="100" style="width: 70px;">
                 
                 <label for="puzzles-per-page-select">Puzzles/Page:</label>
-                <select id="puzzles-per-page-select">
+                <select id="puzzles-per-page-select" style="width: 70px;">
                     <option value="1">1</option>
                     <option value="2" selected>2</option>
                     <option value="4">4</option>
@@ -312,7 +312,7 @@
         </div>
 
         <div id="status-container"><p id="source-status"></p></div>
-        <div id="version-info">v2.11</div>
+        <div id="version-info">v2.12</div>
     </div>
     
     <script>
@@ -865,7 +865,7 @@
         const themeToggleBtn = document.getElementById('theme-toggle-btn');
         function setTheme(theme) { document.body.classList.toggle('dark-mode', theme === 'dark'); localStorage.setItem('theme', theme); }
         themeToggleBtn.addEventListener('click', () => setTheme(document.body.classList.contains('dark-mode') ? 'light' : 'dark'));
-        const savedTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+        const savedTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'light' : 'light');
         setTheme(savedTheme);
         
         // --- INITIALIZATION ---
