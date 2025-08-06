@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sudoku Generator v2.16</title>
+    <title>Sudoku Generator v2.17</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
         :root {
@@ -20,6 +20,7 @@
             --color-grid-selected-bg: #d0e8ff;
             --color-grid-related-bg: #e9ecef;
             --color-grid-highlighted-bg: #cce5ff;
+            --color-grid-diagonal-bg: #f0f0f0;
             --color-button-disabled-bg: #6c757d;
             --color-spinner-track: #f3f3f3;
             --color-modal-bg: rgba(0, 0, 0, 0.6);
@@ -49,8 +50,9 @@
             --color-grid-given-text: #fff;
             --color-grid-user-text: #58a6ff;
             --color-grid-selected-bg: #3a5a78;
-            --color-grid-related-bg: #343a40;
+            --color-grid-related-bg: #222;
             --color-grid-highlighted-bg: #004a9e;
+            --color-grid-diagonal-bg: #1a1a1a;
             --color-button-disabled-bg: #555;
             --color-spinner-track: #444;
             --color-modal-bg: rgba(0, 0, 0, 0.8);
@@ -123,6 +125,9 @@
         .grid-cell.selected { background-color: var(--color-grid-selected-bg); }
         .grid-cell.related-cell { background-color: var(--color-grid-related-bg); }
         .grid-cell.highlighted { background-color: var(--color-grid-highlighted-bg); }
+        .grid-cell.diagonal-cell { background-color: var(--color-grid-diagonal-bg); }
+        .grid-cell.related-cell.diagonal-cell { filter: brightness(0.95); }
+        body.dark-mode .grid-cell.related-cell.diagonal-cell { filter: brightness(1.2); }
         
         .grid-cell.hint-cell { color: var(--color-info); }
         .grid-cell.conflict-cell { color: var(--color-conflict-text); }
@@ -138,6 +143,7 @@
         .global-options-container { display: flex; justify-content: center; align-items: center; gap: 10px 25px; margin-top: 25px; font-size: 1em; color: var(--color-text-primary); }
         .controls-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; max-width: 415px; margin: 25px auto 0 auto; }
         .option-group { display: flex; align-items: center; gap: 10px; }
+        #sudoku-x-label { user-select: none; cursor: pointer; }
         
         button { padding: 12px 20px; font-size: 1em; font-weight: bold; cursor: pointer; color: white; border: none; border-radius: 5px; transition: all 0.2s; box-shadow: 0 2px 4px var(--color-box-shadow); width: 100%; box-sizing: border-box; }
         button:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 4px 8px var(--color-box-shadow-hover); }
@@ -205,6 +211,7 @@
             .controls-grid { grid-template-columns: 1fr; }
             .book-options-grid, .create-options-grid { grid-template-columns: 1fr; }
             .book-options-grid label, .create-options-grid label { text-align: left; }
+            .global-options-container { flex-direction: column; gap: 15px; }
         }
     </style>
 </head>
@@ -255,6 +262,9 @@
                     <option value="hard">Hard</option>
                     <option value="expert">Expert</option>
                 </select>
+            </div>
+             <div class="option-group">
+                <label id="sudoku-x-label" for="sudoku-x-checkbox"><input type="checkbox" id="sudoku-x-checkbox"> <b>Sudoku X</b></label>
             </div>
         </div>
 
@@ -316,7 +326,7 @@
         </div>
 
         <div id="status-container"><p id="source-status"></p></div>
-        <div id="version-info">v2.16</div>
+        <div id="version-info">v2.17</div>
     </div>
 
     <div id="book-loader" class="book-loader hidden">
@@ -339,6 +349,7 @@
             loaderTextBook: document.getElementById('loader-text-book'),
             cancelBookGenerationBtn: document.getElementById('cancel-book-generation-btn'),
             difficultySelect: document.getElementById('difficulty-select'),
+            sudokuXCheckbox: document.getElementById('sudoku-x-checkbox'),
             status: document.getElementById('source-status'),
             generateBtn: document.getElementById('generate-btn'),
             revealBtn: document.getElementById('reveal-btn'),
@@ -368,6 +379,7 @@
         let hintedCells = new Set();
         let conflictCells = new Set();
         let isGeneratingBook = false;
+        let isSudokuXMode = false;
 
         // --- SUDOKU CORE LOGIC ---
 
@@ -384,7 +396,7 @@
             return null;
         }
 
-        function isValid(board, row, col, num) {
+        function isValid(board, row, col, num, isX = false) {
             for (let i = 0; i < 9; i++) {
                 if ((board[row][i] === num && i !== col) || (board[i][col] === num && i !== row)) return false;
             }
@@ -392,18 +404,22 @@
             for (let r = 0; r < 3; r++) for (let c = 0; c < 3; c++) {
                 if ((boxRow + r !== row || boxCol + c !== col) && board[boxRow + r][boxCol + c] === num) return false;
             }
+            if (isX) {
+                if (row === col) { for (let i = 0; i < 9; i++) if (i !== row && board[i][i] === num) return false; }
+                if (row + col === 8) { for (let i = 0; i < 9; i++) if (i !== row && board[i][8 - i] === num) return false; }
+            }
             return true;
         }
 
-        function solve(board) {
+        function solve(board, isX = false) {
             const emptyPos = findEmpty(board);
             if (!emptyPos) return true;
             const [r, c] = emptyPos;
             const nums = shuffle([1, 2, 3, 4, 5, 6, 7, 8, 9]);
             for (const num of nums) {
-                if (isValid(board, r, c, num)) {
+                if (isValid(board, r, c, num, isX)) {
                     board[r][c] = num;
-                    if (solve(board)) return true;
+                    if (solve(board, isX)) return true;
                     board[r][c] = 0;
                 }
             }
@@ -411,7 +427,7 @@
         }
         
         let solutionCounter;
-        function countSolutions(board) {
+        function countSolutions(board, isX = false) {
             const emptyPos = findEmpty(board);
             if (!emptyPos) {
                 solutionCounter++;
@@ -419,9 +435,9 @@
             }
             const [r, c] = emptyPos;
             for (let num = 1; num <= 9 && solutionCounter < 2; num++) {
-                if (isValid(board, r, c, num)) {
+                if (isValid(board, r, c, num, isX)) {
                     board[r][c] = num;
-                    countSolutions(board);
+                    countSolutions(board, isX);
                     board[r][c] = 0;
                 }
             }
@@ -438,55 +454,37 @@
         }
 
         function generateSudoku(options = {}) {
+            const { isX, ...genOptions } = options;
             const board = Array(9).fill(0).map(() => Array(9).fill(0));
-            solve(board);
+            solve(board, isX);
             const solution = JSON.parse(JSON.stringify(board));
             let puzzle = JSON.parse(JSON.stringify(solution));
 
-            const mandatoryClues = new Set();
-            if (options.completedRowCount > 0) {
-                const rows = shuffle([...Array(9).keys()]).slice(0, options.completedRowCount);
-                rows.forEach(r => { for(let c=0; c<9; c++) mandatoryClues.add(`${r},${c}`); });
-            }
-            if (options.completedColCount > 0) {
-                const cols = shuffle([...Array(9).keys()]).slice(0, options.completedColCount);
-                cols.forEach(c => { for(let r=0; r<9; r++) mandatoryClues.add(`${r},${c}`); });
-            }
-            if (options.completedBoxCount > 0) {
-                const boxes = shuffle([...Array(9).keys()]).slice(0, options.completedBoxCount);
-                boxes.forEach(b => {
-                    const startRow = Math.floor(b / 3) * 3, startCol = (b % 3) * 3;
-                    for(let r=0; r<3; r++) for(let c=0; c<3; c++) mandatoryClues.add(`${startRow+r},${startCol+c}`);
-                });
-            }
-
             let removalCandidates = [];
             for (let r = 0; r < 9; r++) for (let c = 0; c < 9; c++) {
-                if (!mandatoryClues.has(`${r},${c}`)) {
-                    removalCandidates.push([r, c]);
-                }
+                removalCandidates.push([r, c]);
             }
             shuffle(removalCandidates);
-
-            if (mandatoryClues.size === 0) {
-                const cluesToKeep = getCluesForDifficulty(options.difficulty);
-                const cellsToRemoveCount = 81 - cluesToKeep;
-                removalCandidates = removalCandidates.slice(0, cellsToRemoveCount);
-            }
+            
+            const cluesToKeep = getCluesForDifficulty(genOptions.difficulty);
+            const cellsToRemoveCount = 81 - cluesToKeep;
+            let removedCount = 0;
 
             for (const [r, c] of removalCandidates) {
+                if (removedCount >= cellsToRemoveCount) break;
                 const backup = puzzle[r][c];
                 puzzle[r][c] = 0;
                 
                 const tempBoard = JSON.parse(JSON.stringify(puzzle));
                 solutionCounter = 0;
-                countSolutions(tempBoard);
+                countSolutions(tempBoard, isX);
                 
                 if (solutionCounter !== 1) {
                     puzzle[r][c] = backup;
+                } else {
+                    removedCount++;
                 }
             }
-
             return { puzzle, solution };
         }
 
@@ -513,6 +511,10 @@
                             const curR = boxRow + i, curC = boxCol + j;
                             if ((curR !== r || curC !== c) && fullBoard[curR][curC] === num) conflictCells.add(`${r},${c}`);
                         }
+                    }
+                    if (isSudokuXMode) {
+                        if (r === c) { for (let i = 0; i < 9; i++) if (i !== r && fullBoard[i][i] === num) conflictCells.add(`${r},${c}`); }
+                        if (r + c === 8) { for (let i = 0; i < 9; i++) if (i !== r && fullBoard[i][8 - i] === num) conflictCells.add(`${r},${c}`); }
                     }
                 }
             }
@@ -566,6 +568,10 @@
                     cell.dataset.row = r;
                     cell.dataset.col = c;
                     cell.style.fontSize = `${cellSize * 0.5}px`;
+
+                    if (isSudokuXMode && (r === c || r + c === 8)) {
+                        cell.classList.add('diagonal-cell');
+                    }
                     
                     const coordKey = `${r},${c}`;
                     const isGiven = puzzleBoard.length > 0 && puzzleBoard[r][c] !== 0;
@@ -705,9 +711,18 @@
         }
 
         // --- PDF Generation ---
-        function drawSingleSudokuGrid(doc, { puzzle, solution }, startX, startY, gridTotalSize, showSolution = false) {
+        function drawSingleSudokuGrid(doc, { puzzle, solution, isX }, startX, startY, gridTotalSize, showSolution = false) {
             const cellSize = gridTotalSize / 9;
             const fontSize = (cellSize * 0.5) / 0.352778; 
+            
+            if (isX) {
+                doc.setFillColor(230, 230, 230);
+                for (let i = 0; i < 9; i++) {
+                    doc.rect(startX + i * cellSize, startY + i * cellSize, cellSize, cellSize, 'F');
+                    doc.rect(startX + (8 - i) * cellSize, startY + i * cellSize, cellSize, cellSize, 'F');
+                }
+            }
+
             doc.setFont('helvetica', 'normal').setFontSize(fontSize).setTextColor(0);
             for (let r = 0; r < 9; r++) for (let c = 0; c < 9; c++) {
                 const num = showSolution ? solution[r][c] : puzzle[r][c];
@@ -727,7 +742,7 @@
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
             const difficulty = ui.status.textContent.split('(')[0].trim() || 'Custom';
-            const puzzleData = { puzzle: puzzleBoard, difficulty: difficulty, solution: solutionBoard };
+            const puzzleData = { puzzle: puzzleBoard, difficulty: difficulty, solution: solutionBoard, isX: isSudokuXMode };
             drawPuzzlesOnPage(doc, [puzzleData], 0, {puzzlesPerPage: 1, includePageNumbers: false});
             doc.save(`Sudoku-${difficulty}.pdf`);
         }
@@ -791,8 +806,9 @@
                 const totalContainerWidth = size + (containerPadding * 2);
                 const containerX = x - containerPadding;
                 const containerY = y - containerPadding;
+                const titleText = `Puzzle ${puzzleIndex + 1}${puzzleData.isX ? ' (Sudoku X)' : ''}`;
 
-                doc.setFont('helvetica', 'bold').setFontSize(12).text(`Puzzle ${puzzleIndex + 1}`, containerX + totalContainerWidth / 2, containerY - 6, { align: 'center' });
+                doc.setFont('helvetica', 'bold').setFontSize(12).text(titleText, containerX + totalContainerWidth / 2, containerY - 6, { align: 'center' });
                 doc.setFont('helvetica', 'normal').setFontSize(9).text(`Difficulty: ${puzzleData.difficulty}`, containerX + totalContainerWidth / 2, containerY - 2, { align: 'center' });
                 doc.setDrawColor(0).setLineWidth(0.6).roundedRect(containerX, containerY, totalContainerWidth, totalContainerHeight, cornerRadius, cornerRadius, 'S');
                 
@@ -844,8 +860,9 @@
                     ui.loaderTextBook.textContent = `Generating Puzzle ${i} of ${bookOptions.puzzleCount}...`;
                     await new Promise(r => setTimeout(r, 10));
                     const diff = ui.difficultySelect.value;
-                    const { puzzle, solution } = generateSudoku({difficulty: diff});
-                    allPuzzlesData.push({ puzzle, solution, difficulty: diff.charAt(0).toUpperCase() + diff.slice(1) });
+                    const puzzleIsX = ui.sudokuXCheckbox.checked;
+                    const { puzzle, solution } = generateSudoku({difficulty: diff, isX: puzzleIsX});
+                    allPuzzlesData.push({ puzzle, solution, difficulty: diff.charAt(0).toUpperCase() + diff.slice(1), isX: puzzleIsX });
                 }
 
                 ui.loaderTextBook.textContent = `Building PDF...`;
@@ -928,31 +945,31 @@
         setTheme(savedTheme);
         
         // --- INITIALIZATION ---
-        const defaultGame = () => startNewGame(new Promise(res => { const diff = ui.difficultySelect.value; res({ ...generateSudoku({difficulty: diff}), source: `Difficulty: ${diff.charAt(0).toUpperCase() + diff.slice(1)}` }) }));
+        const defaultGame = () => {
+            isSudokuXMode = ui.sudokuXCheckbox.checked;
+            const sourceText = `Difficulty: ${ui.difficultySelect.value.charAt(0).toUpperCase() + ui.difficultySelect.value.slice(1)}${isSudokuXMode ? ' (X)' : ''}`;
+            const puzzleOptions = {
+                difficulty: ui.difficultySelect.value,
+                isX: isSudokuXMode
+            };
+            startNewGame(new Promise(res => res({ ...generateSudoku(puzzleOptions), source: sourceText })));
+        }
 
         ui.generateBtn.addEventListener('click', defaultGame);
         ui.revealBtn.addEventListener('click', () => { revealSolution(); updateGridDisplay(); });
         ui.hintBtn.addEventListener('click', giveHint);
         ui.downloadPdfBtn.addEventListener('click', downloadPdf);
         ui.difficultySelect.addEventListener('change', defaultGame);
+        ui.sudokuXCheckbox.addEventListener('change', defaultGame);
         
         ui.createPuzzleBtn.addEventListener('click', () => showPanel(ui.createPuzzlePanel));
         ui.cancelCreatePuzzleBtn.addEventListener('click', hidePanel);
         ui.cancelBookGenerationBtn.addEventListener('click', () => { isGeneratingBook = false; });
 
         ui.startCreatedPuzzleBtn.addEventListener('click', () => {
-             startNewGame(new Promise((resolve, reject) => {
-                const options = {
-                    completedRowCount: parseInt(ui.completedRowsInput.value, 10) || 0,
-                    completedColCount: parseInt(ui.completedColsInput.value, 10) || 0,
-                    completedBoxCount: parseInt(ui.completedBoxesInput.value, 10) || 0,
-                };
-                if (options.completedRowCount > 9 || options.completedColCount > 9 || options.completedBoxCount > 9) {
-                    return reject(new Error("Completed zones cannot be greater than 9."));
-                }
-                
+             startNewGame(new Promise((resolve) => {
                 hidePanel();
-                resolve({ ...generateSudoku(options), source: `Custom Puzzle` });
+                resolve({ ...generateSudoku({difficulty: 'medium'}), source: `Custom Puzzle` });
             }));
         });
         
