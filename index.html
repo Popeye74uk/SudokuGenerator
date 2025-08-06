@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sudoku Generator v0.2</title>
+    <title>Sudoku Generator v0.3</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
         :root {
@@ -18,6 +18,8 @@
             --color-grid-given-text: #000;
             --color-grid-user-text: #007bff;
             --color-grid-selected-bg: #d0e8ff;
+            --color-grid-related-bg: #e9ecef;
+            --color-grid-highlighted-bg: #cce5ff;
             --color-button-disabled-bg: #6c757d;
             --color-spinner-track: #f3f3f3;
             --color-modal-bg: rgba(0, 0, 0, 0.6);
@@ -46,6 +48,8 @@
             --color-grid-given-text: #fff;
             --color-grid-user-text: #58a6ff;
             --color-grid-selected-bg: #3a5a78;
+            --color-grid-related-bg: #343a40;
+            --color-grid-highlighted-bg: #004a9e;
             --color-button-disabled-bg: #555;
             --color-spinner-track: #444;
             --color-modal-bg: rgba(0, 0, 0, 0.8);
@@ -67,17 +71,20 @@
         #grid-wrapper { position: relative; }
         #grid-wrapper:fullscreen { background-color: var(--color-background); padding: 20px; display: flex; justify-content: center; align-items: center; }
         
-        /* --- Grid Layout Fix --- */
         #grid { border: 3px solid var(--color-grid-box-lines); border-radius: 5px; background-color: var(--color-grid-box-lines); display: flex; flex-direction: column; gap: 1px; }
         .grid-row { display: grid; gap: 1px; }
 
         .grid-cell { background-color: var(--color-grid-cell-bg); color: var(--color-grid-user-text); font-weight: bold; display: flex; justify-content: center; align-items: center; cursor: pointer; user-select: none; transition: background-color 0.2s; font-size: 1.5em; }
         .grid-cell.given-cell { color: var(--color-grid-given-text); cursor: not-allowed; font-weight: normal;}
         .grid-cell.selected { background-color: var(--color-grid-selected-bg); }
+        .grid-cell.related-cell { background-color: var(--color-grid-related-bg); }
+        .grid-cell.highlighted { background-color: var(--color-grid-highlighted-bg); }
+
         .grid-cell:nth-child(3n) { border-right: 2px solid var(--color-grid-box-lines); }
         .grid-cell:nth-child(9n) { border-right: none; }
-        .grid-row:nth-child(3n) .grid-cell { border-bottom: 2px solid var(--color-grid-box-lines); }
-        .grid-row:nth-child(9) .grid-cell { border-bottom: none; }
+        .grid-row:nth-child(3n) { border-bottom: 2px solid var(--color-grid-box-lines); }
+        /* --- Border Fix: Removed rule that hid the bottom border of the last row --- */
+
         .grid-cell.correct { background-color: var(--color-correct-bg); }
         .grid-cell.incorrect { background-color: var(--color-incorrect-bg); }
 
@@ -176,7 +183,7 @@
         </div>
 
         <div id="status-container"><p id="source-status"></p></div>
-        <div id="version-info">v0.2</div>
+        <div id="version-info">v0.3</div>
     </div>
 
     <div id="completion-modal" onclick="this.classList.remove('visible')">
@@ -332,14 +339,13 @@
         function updateGridDisplay() {
             ui.grid.innerHTML = '';
             
-            // --- Grid Sizing Fix ---
-            // Use the container's width for responsive scaling, similar to the other generators.
-            // Capped at 600px, a comfortable maximum size for a 9x9 grid.
             const containerSize = Math.min(ui.puzzleContainer.clientWidth, 600);
             const cellSize = Math.floor(containerSize / 9);
 
             ui.grid.style.width = `${cellSize * 9 + 8}px`; // +8 to account for 1px gaps
             ui.grid.style.height = `${cellSize * 9 + 8}px`;
+
+            const selectedValue = (selectedCell.row !== -1) ? (userBoard[selectedCell.row][selectedCell.col] || puzzleBoard[selectedCell.row][selectedCell.col]) : 0;
 
             for (let r = 0; r < 9; r++) {
                 const rowDiv = document.createElement('div');
@@ -355,16 +361,24 @@
                     cell.style.height = `${cellSize}px`;
                     cell.style.fontSize = `${cellSize * 0.5}px`;
                     
-                    if (puzzleBoard[r][c] !== 0) {
-                        cell.textContent = puzzleBoard[r][c];
-                        cell.classList.add('given-cell');
-                    } else {
-                        cell.textContent = userBoard[r][c] === 0 ? '' : userBoard[r][c];
-                        cell.tabIndex = 0; // Make it focusable
-                    }
+                    const isGiven = puzzleBoard[r][c] !== 0;
+                    const currentValue = isGiven ? puzzleBoard[r][c] : userBoard[r][c];
+                    
+                    cell.textContent = currentValue === 0 ? '' : currentValue;
+                    if (isGiven) cell.classList.add('given-cell');
+                    else cell.tabIndex = 0;
 
-                    if (r === selectedCell.row && c === selectedCell.col) {
-                        cell.classList.add('selected');
+                    // Highlighting Logic
+                    if (selectedCell.row !== -1) {
+                         if (r === selectedCell.row && c === selectedCell.col) {
+                            cell.classList.add('selected');
+                        } else if (r === selectedCell.row || c === selectedCell.col || (Math.floor(r/3) === Math.floor(selectedCell.row/3) && Math.floor(c/3) === Math.floor(selectedCell.col/3))) {
+                            cell.classList.add('related-cell');
+                        }
+                        
+                        if (selectedValue !== 0 && currentValue === selectedValue) {
+                           cell.classList.add('highlighted');
+                        }
                     }
 
                     rowDiv.appendChild(cell);
@@ -384,7 +398,7 @@
             try {
                 puzzleBoard = generateSudoku(difficulty);
                 userBoard = Array(9).fill(0).map(() => Array(9).fill(0));
-                selectedCell = { row: -1, col: -1 };
+                handleCellClick(-1, -1); // Deselect cell
                 
                 updateGridDisplay();
                 startTime = Date.now();
@@ -435,6 +449,7 @@
 
         function revealSolution() {
             userBoard = JSON.parse(JSON.stringify(solutionBoard));
+            handleCellClick(-1,-1);
             updateGridDisplay();
             setUiLoading(true); // Disable buttons after reveal
             ui.checkBtn.disabled = true;
@@ -455,8 +470,7 @@
                 const randomCell = emptyCells[Math.floor(Math.random() * emptyCells.length)];
                 const { r, c } = randomCell;
                 userBoard[r][c] = solutionBoard[r][c];
-                selectedCell = { row: r, col: c };
-                updateGridDisplay();
+                handleCellClick(r,c);
             } else {
                 ui.status.textContent = "No empty cells to provide a hint for!";
             }
@@ -483,15 +497,18 @@
             ui.completionModal.classList.add('visible');
         }
 
+        function handleCellClick(row, col) {
+            selectedCell.row = row;
+            selectedCell.col = col;
+            updateGridDisplay();
+        }
+
         // --- EVENT LISTENERS ---
 
         ui.grid.addEventListener('click', (e) => {
             const cell = e.target.closest('.grid-cell');
             if (cell && !cell.classList.contains('given-cell')) {
-                selectedCell.row = parseInt(cell.dataset.row);
-                selectedCell.col = parseInt(cell.dataset.col);
-                updateGridDisplay();
-                // No need to call .focus() here, keyboard input is global
+                handleCellClick(parseInt(cell.dataset.row), parseInt(cell.dataset.col));
             }
         });
 
