@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sudoku Generator v3.0</title>
+    <title>Sudoku Generator v3.1</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
         :root {
@@ -163,10 +163,6 @@
         #make-book-btn { background-color: var(--color-danger); }
         #hint-btn { background-color: var(--color-info); }
 
-        #notes-btn { background-color: var(--color-text-secondary); display: flex; justify-content: center; align-items: center; gap: 8px; }
-        #notes-btn.active { background-color: var(--color-button-active-bg); }
-        #notes-btn svg { width: 20px; height: 20px; fill: white; }
-        
         .panel { max-width: 415px; margin: 25px auto 0; padding: 20px; border-radius: 8px; box-shadow: 0 4px 12px var(--color-box-shadow); display: none; }
         .panel h3 { margin-top: 0; }
         .panel p { font-size: 0.9em; color: var(--color-text-secondary); margin-bottom: 15px; text-align: left; }
@@ -194,6 +190,9 @@
             font-weight: normal;
             cursor: default;
         }
+        .number-cell[data-action="notes"].active { background-color: var(--color-button-active-bg); }
+        .number-cell[data-action="notes"].active svg { fill: white; }
+
 
         #status-container { text-align: center; margin-top: 15px; font-style: italic; min-height: 20px; color: var(--color-text-secondary); }
         #version-info { text-align: center; margin-top: 20px; font-size: 0.8em; color: var(--color-grid-lines); }
@@ -261,10 +260,6 @@
                         <button>Play Again?</button>
                     </div>
                 </div>
-                <button id="notes-btn" title="Toggle Notes Mode (T)">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34a.9959.9959 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
-                    <span>Notes</span>
-                </button>
                 <div id="number-panel"></div>
             </div>
         </div>
@@ -342,7 +337,7 @@
         </div>
 
         <div id="status-container"><p id="source-status"></p></div>
-        <div id="version-info">v3.0</div>
+        <div id="version-info">v3.1</div>
     </div>
 
     <div id="book-loader" class="book-loader hidden">
@@ -372,7 +367,6 @@
             hintBtn: document.getElementById('hint-btn'),
             downloadPdfBtn: document.getElementById('download-pdf-btn'),
             makeBookBtn: document.getElementById('make-book-btn'),
-            notesBtn: document.getElementById('notes-btn'),
             completionModal: document.getElementById('completion-modal'),
             fullscreenBtn: document.getElementById('fullscreen-btn'),
             themeToggleBtn: document.getElementById('theme-toggle-btn'),
@@ -634,7 +628,7 @@
 
             ui.numberPanel.style.width = `${gridTotalSize}px`;
             const numberCells = ui.numberPanel.querySelectorAll('.number-cell');
-            const numCellSize = (gridTotalSize - (9 * 5)) / 10;
+            const numCellSize = (gridTotalSize - (10 * 5)) / 11;
             numberCells.forEach(cell => {
                 cell.style.width = `${numCellSize}px`;
                 cell.style.height = `${numCellSize}px`;
@@ -946,7 +940,7 @@
             if (puzzleBoard[row][col] !== 0 || hintedCells.has(`${row},${col}`)) return;
 
             if (isNotesMode) {
-                userBoard[row][col] = 0; // Clear answer if entering notes
+                userBoard[row][col] = 0;
                 if (notesBoard[row][col].has(num)) {
                     notesBoard[row][col].delete(num);
                 } else {
@@ -973,7 +967,7 @@
             if (key === 'f') { e.preventDefault(); toggleFullScreen(); return; }
             if (key === 'n') { e.preventDefault(); defaultGame(); return; }
             if (key === 'h') { e.preventDefault(); giveHint(); return; }
-            if (key === 't') { e.preventDefault(); ui.notesBtn.click(); return; }
+            if (key === 't') { e.preventDefault(); ui.numberPanel.querySelector('[data-action="notes"]').click(); return; }
 
 
             if (e.key >= '1' && e.key <= '9') {
@@ -1020,10 +1014,6 @@
         ui.downloadPdfBtn.addEventListener('click', downloadPdf);
         ui.difficultySelect.addEventListener('change', defaultGame);
         ui.sudokuXCheckbox.addEventListener('change', defaultGame);
-        ui.notesBtn.addEventListener('click', () => {
-            isNotesMode = !isNotesMode;
-            ui.notesBtn.classList.toggle('active', isNotesMode);
-        });
         
         ui.createPuzzleBtn.addEventListener('click', () => showPanel(ui.createPuzzlePanel));
         ui.cancelCreatePuzzleBtn.addEventListener('click', hidePanel);
@@ -1047,6 +1037,17 @@
         });
         
         function setupNumberPanel() {
+            const notesCell = document.createElement('div');
+            notesCell.className = 'number-cell';
+            notesCell.dataset.action = 'notes';
+            notesCell.title = 'Toggle Notes Mode (T)';
+            notesCell.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34a.9959.9959 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>`;
+            notesCell.addEventListener('click', () => {
+                isNotesMode = !isNotesMode;
+                notesCell.classList.toggle('active', isNotesMode);
+            });
+            ui.numberPanel.appendChild(notesCell);
+            
             for (let i = 1; i <= 9; i++) {
                 const cell = document.createElement('div');
                 cell.className = 'number-cell';
